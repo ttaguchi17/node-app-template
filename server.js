@@ -175,6 +175,29 @@ app.get('/api/users', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Error retrieving email addresses.' });
     }
 });
+
+app.get('/api/trips', authenticateToken,async (req, res) => {
+    try{
+        const userEmail = req.user.email;
+        const connection = await createConnection();
+
+        const [trips] = await connection.execute(
+            `SELECT t.* FROM trip t
+             JOIN trip_membership tm ON t.trip_id = tm.trip_id
+             JOIN user u ON tm.user_id = u.user_id
+             WHERE u.email = ?`,
+             [userEmail]
+        );
+
+        await connection.end();  
+        res.status(200).json(trips);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error retrieving trips.' });
+    }
+
+});
+
 //////////////////////////////////////
 //END ROUTES TO HANDLE API REQUESTS
 //////////////////////////////////////
