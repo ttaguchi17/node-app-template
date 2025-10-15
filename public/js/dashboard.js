@@ -1,74 +1,104 @@
-////////////////////////////////////////////////////////////////
-//DASHBOARD.JS
-//THIS IS YOUR "CONTROLLER", IT ACTS AS THE MIDDLEMAN
-// BETWEEN THE MODEL (datamodel.js) AND THE VIEW (dashboard.html)
-////////////////////////////////////////////////////////////////
-
-
-//ADD ALL EVENT LISTENERS INSIDE DOMCONTENTLOADED
-//AT THE BOTTOM OF DOMCONTENTLOADED, ADD ANY CODE THAT NEEDS TO RUN IMMEDIATELY
+// public/js/dashboard.js
 document.addEventListener('DOMContentLoaded', () => {
-    
-    //////////////////////////////////////////
-    //ELEMENTS TO ATTACH EVENT LISTENERS
-    //////////////////////////////////////////
-    const logoutButton = document.getElementById('logoutButton');
-    const refreshButton = document.getElementById('refreshButton');
-    //////////////////////////////////////////
-    //END ELEMENTS TO ATTACH EVENT LISTENERS
-    //////////////////////////////////////////
+  // 1) Auth guard
+  const token = localStorage.getItem('token');
+  if (!token) {
+    window.location.href = '/logon.html';
+    return;
+  }
 
+  // 2) Helpers
+  const statusClass = (s = '') => {
+    const k = s.toLowerCase();
+    if (k.includes('booked') || k.includes('confirmed')) return 'bg-success';
+    if (k.includes('planning') || k.includes('draft')) return 'bg-info text-dark';
+    if (k.includes('canceled') || k.includes('cancelled')) return 'bg-secondary';
+    return 'bg-primary';
+  };
 
-    //////////////////////////////////////////
-    //EVENT LISTENERS
-    //////////////////////////////////////////
-    // Log out and redirect to login
-    logoutButton.addEventListener('click', () => {
+  const tripCard = (t) => `
+    <div class="col-xl-4 col-md-6 mb-4">
+      <div class="card border-left-primary shadow h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div class="me-3">
+              <div class="text-xs text-uppercase text-muted mb-1">${t.destination || 'Trip'}</div>
+              <div class="h5 mb-1 text-gray-800">${t.title || 'Untitled Trip'}</div>
+              <div class="small text-muted">${t.dates || ''}</div>
+              ${t.notes ? `<div class="small mt-2">${t.notes}</div>` : ''}
+            </div>
+            <div class="text-end">
+              <span class="badge ${statusClass(t.status)}">${t.status || 'Planned'}</span>
+              <div class="mt-3">
+                <i class="fas fa-suitcase-rolling fa-2x text-gray-300"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // 3) Fetch + render
+  async function fetchAndRenderTrips() {
+    const tripsContainer = document.getElementById('trips-container');
+    if (!tripsContainer) return;
+
+    tripsContainer.innerHTML = `
+      <div class="col-12">
+        <div class="d-flex align-items-center text-muted">
+          <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+          <span>Loading trips…</span>
+        </div>
+      </div>`;
+
+    try {
+      const response = await fetch('/api/trips', {
+        method: 'GET',
+        headers: {
+          // server accepts Bearer or raw; this sends Bearer
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.status === 401 || response.status === 403) {
         localStorage.removeItem('token');
-        window.location.href = '/';
-    });
+        window.location.href = '/logon.html';
+        return;
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    // Refresh list when the button is clicked
-    refreshButton.addEventListener('click', async () => {
-        renderUserList();
-    });
-    //////////////////////////////////////////
-    //END EVENT LISTENERS
-    //////////////////////////////////////////
+      const trips = await response.json();
+      if (!Array.isArray(trips) || trips.length === 0) {
+        tripsContainer.innerHTML = `
+          <div class="col-12">
+            <div class="alert alert-info mb-0">
+              You have no trips yet. Click <em>New Trip</em> to create one.
+            </div>
+          </div>`;
+        return;
+      }
 
-
-    //////////////////////////////////////////////////////
-    //CODE THAT NEEDS TO RUN IMMEDIATELY AFTER PAGE LOADS
-    //////////////////////////////////////////////////////
-    // Initial check for the token
-    const token = localStorage.getItem('jwtToken');
-    if (!token) {
-        window.location.href = '/';
-    } else {
-        DataModel.setToken(token);
-        renderUserList();
+      tripsContainer.innerHTML = trips.map(tripCard).join('');
+    } catch (err) {
+      console.error('Failed to fetch trips:', err);
+      tripsContainer.innerHTML = `
+        <div class="col-12">
+          <div class="alert alert-danger mb-0">
+            Couldn’t load trips. Please try again.
+          </div>
+        </div>`;
     }
-    //////////////////////////////////////////
-    //END CODE THAT NEEDS TO RUN IMMEDIATELY AFTER PAGE LOADS
-    //////////////////////////////////////////
+  }
+
+  // 4) Buttons
+  document.getElementById('logoutButton')?.addEventListener('click', () => {
+    localStorage.removeItem('token');
+    window.location.href = '/logon.html';
+  });
+
+  document.getElementById('refreshButton')?.addEventListener('click', fetchAndRenderTrips);
+
+  // 5) Initial load
+  fetchAndRenderTrips();
 });
-//END OF DOMCONTENTLOADED
-
-
-//////////////////////////////////////////
-//FUNCTIONS TO MANIPULATE THE DOM
-//////////////////////////////////////////
-async function renderUserList() {
-    const userListElement = document.getElementById('userList');
-    userListElement.innerHTML = '<div class="loading-message">Loading user list...</div>';
-    const users = await DataModel.getUsers(); 
-    users.forEach(user => {
-        const userItem = document.createElement('div');
-        userItem.classList.add('user-item');
-        userItem.textContent = user;
-        userListElement.appendChild(userItem);
-    });
-}
-//////////////////////////////////////////
-//END FUNCTIONS TO MANIPULATE THE DOM
-//////////////////////////////////////////
