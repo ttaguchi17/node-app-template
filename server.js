@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -27,7 +27,6 @@ app.get('/dashboard', (req, res) => {
 //////////////////////////////////////
 // END ROUTES TO SERVE HTML FILES
 //////////////////////////////////////
-
 
 /////////////////////////////////////////////////
 // HELPER FUNCTIONS AND AUTHENTICATION MIDDLEWARE
@@ -77,7 +76,6 @@ async function authenticateToken(req, res, next) {
 /////////////////////////////////////////////////
 // END HELPER FUNCTIONS AND AUTHENTICATION MIDDLEWARE
 /////////////////////////////////////////////////
-
 
 //////////////////////////////////////
 // ROUTES TO HANDLE API REQUESTS

@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'bg-primary';
   };
 
+  // Render one trip card
   const tripCard = (t) => `
     <div class="col-xl-4 col-md-6 mb-4">
       <div class="card border-left-primary shadow h-100">
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tripsContainer = document.getElementById('trips-container');
     if (!tripsContainer) return;
 
+    // Loading state
     tripsContainer.innerHTML = `
       <div class="col-12">
         <div class="d-flex align-items-center text-muted">
@@ -55,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/trips', {
         method: 'GET',
         headers: {
-          // server accepts Bearer or raw; this sends Bearer
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
         }
@@ -69,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const trips = await response.json();
+
       if (!Array.isArray(trips) || trips.length === 0) {
         tripsContainer.innerHTML = `
           <div class="col-12">
@@ -99,14 +101,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('refreshButton')?.addEventListener('click', fetchAndRenderTrips);
 
-  // 5) Initial load
-  fetchAndRenderTrips();
-
-  const newTripButton = document.getElementById('newTripButton');
-if (newTripButton) {
-  newTripButton.addEventListener('click', () => {
+  document.getElementById('newTripButton')?.addEventListener('click', () => {
     window.location.href = '/newtrip.html';
   });
-}
 
+  // 5) Initial load
+  fetchAndRenderTrips();
 });

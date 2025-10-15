@@ -14,11 +14,11 @@
 
   <!-- (Optional) Your overrides -->
   <link href="css/dashboard.css" rel="stylesheet" />
-  
+
   <style>
     .trip-card { min-height: 140px; }
 
-    /* 🔹 Make all top buttons same height and alignment */
+    /* Make top buttons same height / aligned */
     .navbar-nav .btn {
       padding: 0.5rem 1.25rem !important;
       font-size: 0.95rem;
@@ -26,8 +26,6 @@
       border-radius: 0.35rem;
       font-weight: 500;
     }
-
-    /* 🔹 Keep them centered vertically */
     .navbar-nav .nav-item {
       display: flex;
       align-items: center;
@@ -134,16 +132,17 @@
   <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
   <script src="js/sb-admin-2.min.js"></script>
 
-  <!-- Your dashboard logic -->
+  <!-- Small inline helpers -->
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // 🔹 Redirect to new trip page
-    const newTripButton = document.getElementById('newTripButton');
-    newTripButton?.addEventListener('click', () => {
+    // Optional: simple redirect if user clicks New Trip (dashboard.js also references this id)
+    document.getElementById('newTripButton')?.addEventListener('click', () => {
       window.location.href = '/newtrip.html';
     });
   </script>
+
+  <!-- Your dashboard logic -->
   <script src="js/dashboard.js"></script>
 </body>
 </html>
