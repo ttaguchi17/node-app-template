@@ -43,7 +43,7 @@ async function createConnection() {
 }
 
 // Authorization Middleware: Verify JWT Token and Check User in Database
-async function authenticateToken(req, res, next) {
+function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   // support "Bearer <token>" or raw "<token>"
   const match = authHeader.match(/^Bearer\s+(.+)$/i);

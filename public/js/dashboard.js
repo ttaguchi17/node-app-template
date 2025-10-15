@@ -1,14 +1,19 @@
 // public/js/dashboard.js
 document.addEventListener('DOMContentLoaded', () => {
-  // 1) Auth guard: Checks if the user is logged in.
+  // 1) Auth guard: Checks if the user is logged in before running any code.
   const token = localStorage.getItem('token');
   if (!token) {
     window.location.href = '/logon.html';
     return;
   }
 
-  // 2) Helpers: Functions to help build the UI.
-  // This function determines the color of the status badge.
+  // 2) Helper Functions: Reusable blocks for building the UI.
+  
+  /**
+   * Determines the Bootstrap background color for a trip's status badge.
+   * @param {string} s The status text of the trip.
+   * @returns {string} The corresponding CSS class for the badge color.
+   */
   const statusClass = (s = '') => {
     const k = s.toLowerCase();
     if (k.includes('booked') || k.includes('confirmed')) return 'bg-success';
@@ -17,7 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'bg-primary';
   };
 
-  // This function creates the HTML for a single trip card.
+  /**
+   * Creates the HTML string for a single trip card.
+   * @param {object} t The trip object from the API.
+   * @returns {string} The HTML markup for the card.
+   */
   const tripCard = (t) => `
     <div class="col-xl-4 col-md-6 mb-4">
       <div class="card border-left-primary shadow h-100">
@@ -40,12 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>`;
 
-  // 3) Fetch + render: The main function to get and display trips.
+  // 3) Main Function: Fetches trip data and renders it to the page.
   async function fetchAndRenderTrips() {
     const tripsContainer = document.getElementById('trips-container');
     if (!tripsContainer) return;
 
-    // Show a loading spinner while fetching data.
+    // Display a loading spinner while waiting for the API response.
     tripsContainer.innerHTML = `
       <div class="col-12">
         <div class="d-flex align-items-center text-muted">
@@ -58,12 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/trips', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`, // Standard way to send a token
+          'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
         }
       });
 
-      // Handle authorization errors by logging the user out.
+      // If the token is invalid or expired, log the user out.
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem('token');
         window.location.href = '/logon.html';
@@ -73,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const trips = await response.json();
 
-      // Display a helpful message if there are no trips.
+      // If there are no trips, display a helpful message.
       if (!Array.isArray(trips) || trips.length === 0) {
         tripsContainer.innerHTML = `
           <div class="col-12">
@@ -84,10 +93,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Render all the trip cards.
+      // If trips are found, render them as cards.
       tripsContainer.innerHTML = trips.map(tripCard).join('');
     } catch (err) {
       console.error('Failed to fetch trips:', err);
+      // Display a user-friendly error message if the API call fails.
       tripsContainer.innerHTML = `
         <div class="col-12">
           <div class="alert alert-danger mb-0">
@@ -97,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 4) Buttons: Event listeners for all dashboard actions.
+  // 4) Event Listeners: Attaches functions to the dashboard buttons.
   document.getElementById('logoutButton')?.addEventListener('click', () => {
     localStorage.removeItem('token');
     window.location.href = '/logon.html';
@@ -106,9 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('refreshButton')?.addEventListener('click', fetchAndRenderTrips);
 
   document.getElementById('newTripButton')?.addEventListener('click', () => {
-    window.location.href = '/newtrip.html';
+    window.location.href = '/newtrip.html'; // Or whatever the correct page is.
   });
 
-  // 5) Initial load: Fetch the data as soon as the page is ready.
+  // 5) Initial Load: Call the main function once to load data when the page opens.
   fetchAndRenderTrips();
 });
