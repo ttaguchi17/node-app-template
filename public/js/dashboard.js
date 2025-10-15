@@ -101,4 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 5) Initial load
   fetchAndRenderTrips();
+
+  const newTripButton = document.getElementById('newTripButton');
+if (newTripButton) {
+  newTripButton.addEventListener('click', () => {
+    window.location.href = '/newtrip.html';
+  });
+}
+
 });
