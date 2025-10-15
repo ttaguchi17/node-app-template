@@ -18,19 +18,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ROUTES TO SERVE HTML FILES
 //////////////////////////////////////
 app.get('/', (req, res) => {
-<<<<<<< Updated upstream
   res.sendFile(path.join(__dirname, 'public', 'logon.html'));
 });
 
 app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-=======
-    res.sendFile(path.join(__dirname, 'public', 'logon.html'));
-});
-
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
->>>>>>> Stashed changes
 });
 //////////////////////////////////////
 // END ROUTES TO SERVE HTML FILES
@@ -40,13 +32,6 @@ app.get('/dashboard', (req, res) => {
 // HELPER FUNCTIONS AND AUTHENTICATION MIDDLEWARE
 /////////////////////////////////////////////////
 
-<<<<<<< Updated upstream
-=======
-/////////////////////////////////////////////////
-// HELPER FUNCTIONS AND AUTHENTICATION MIDDLEWARE
-/////////////////////////////////////////////////
-
->>>>>>> Stashed changes
 // Helper function to create a MySQL connection
 async function createConnection() {
   return await mysql.createConnection({
@@ -58,21 +43,14 @@ async function createConnection() {
 }
 
 // Authorization Middleware: Verify JWT Token and Check User in Database
-async function authenticateToken(req, res, next) {
-<<<<<<< Updated upstream
+function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   // support "Bearer <token>" or raw "<token>"
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   const token = match ? match[1] : authHeader;
-=======
-    const authHeader = req.headers['authorization'] || '';
-    const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    const token = match ? match[1] : authHeader;
->>>>>>> Stashed changes
 
   if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
 
-<<<<<<< Updated upstream
   jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
     if (err) return res.status(403).json({ message: 'Invalid token.' });
 
@@ -92,68 +70,6 @@ async function authenticateToken(req, res, next) {
     } catch (dbError) {
       console.error(dbError);
       res.status(500).json({ message: 'Database error during authentication.' });
-=======
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-        if (err) {
-            return res.status(403).json({ message: 'Invalid token.' });
-        }
-
-        try {
-            const connection = await createConnection();
-            const [rows] = await connection.execute(
-                'SELECT email FROM `user` WHERE email = ?',
-                [decoded.email]
-            );
-            await connection.end();
-
-            if (rows.length === 0) {
-                return res.status(403).json({ message: 'Account not found or deactivated.' });
-            }
-
-            req.user = decoded;
-            next();
-        } catch (dbError) {
-            console.error(dbError);
-            res.status(500).json({ message: 'Database error during authentication.' });
-        }
-    });
-}
-/////////////////////////////////////////////////
-// END HELPER FUNCTIONS AND AUTHENTICATION MIDDLEWARE
-/////////////////////////////////////////////////
-
-
-//////////////////////////////////////
-// ROUTES TO HANDLE API REQUESTS
-//////////////////////////////////////
-
-// Route: Create Account
-app.post('/api/create-account', async (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required.' });
-    }
-
-    try {
-        const connection = await createConnection();
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        await connection.execute(
-            'INSERT INTO `user` (email, password) VALUES (?, ?)',
-            [email, hashedPassword]
-        );
-        await connection.end();
-
-        res.status(201).json({ message: 'Account created successfully!' });
-    } catch (error) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            res.status(409).json({ message: 'An account with this email already exists.' });
-        } else {
-            console.error(error);
-            res.status(500).json({ message: 'Error creating account.' });
-        }
->>>>>>> Stashed changes
     }
   });
 }
@@ -200,7 +116,6 @@ app.post('/api/login', async (req, res) => {
   if (!email || !password)
     return res.status(400).json({ message: 'Email and password are required.' });
 
-<<<<<<< Updated upstream
   try {
     const connection = await createConnection();
     const [rows] = await connection.execute('SELECT * FROM `user` WHERE email = ?', [email]);
@@ -219,34 +134,10 @@ app.post('/api/login', async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Error logging in.' });
   }
-=======
-    try {
-        const connection = await createConnection();
-        const [rows] = await connection.execute('SELECT * FROM `user` WHERE email = ?', [email]);
-        await connection.end();
-
-        if (rows.length === 0) {
-            return res.status(401).json({ message: 'Invalid email or password.' });
-        }
-
-        const user = rows[0];
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Invalid email or password.' });
-        }
-
-        const token = jwt.sign({ email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.status(200).json({ token });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error logging in.' });
-    }
->>>>>>> Stashed changes
 });
 
 // Route: Get All Email Addresses
 app.get('/api/users', authenticateToken, async (req, res) => {
-<<<<<<< Updated upstream
   try {
     const connection = await createConnection();
     const [rows] = await connection.execute('SELECT email FROM `user`');
@@ -258,24 +149,10 @@ app.get('/api/users', authenticateToken, async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Error retrieving email addresses.' });
   }
-=======
-    try {
-        const connection = await createConnection();
-        const [rows] = await connection.execute('SELECT email FROM `user`');
-        await connection.end();
-
-        const emailList = rows.map(row => row.email);
-        res.status(200).json({ emails: emailList });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error retrieving email addresses.' });
-    }
->>>>>>> Stashed changes
 });
 
 // Route: Get Trips for Logged-in User
 app.get('/api/trips', authenticateToken, async (req, res) => {
-<<<<<<< Updated upstream
   try {
     const userEmail = req.user.email;
     const connection = await createConnection();
@@ -303,32 +180,6 @@ app.get('/api/trips', authenticateToken, async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Error retrieving trips.' });
   }
-=======
-    try {
-        const userEmail = req.user.email;
-        const connection = await createConnection();
-
-        // Get the user's ID first
-        const [[user]] = await connection.execute('SELECT user_id FROM `user` WHERE email = ?', [userEmail]);
-        if (!user) {
-            await connection.end();
-            return res.status(403).json({ message: 'User not found.' });
-        }
-
-        const [trips] = await connection.execute(
-            `SELECT t.* FROM trip t
-             JOIN trip_membership tm ON t.trip_id = tm.trip_id
-             WHERE tm.user_id = ?`,
-            [user.user_id]
-        );
-
-        await connection.end();
-        res.status(200).json(trips);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error retrieving trips.' });
-    }
->>>>>>> Stashed changes
 });
 //////////////////////////////////////
 // END ROUTES TO HANDLE API REQUESTS
@@ -336,9 +187,5 @@ app.get('/api/trips', authenticateToken, async (req, res) => {
 
 // Start the server
 app.listen(port, () => {
-<<<<<<< Updated upstream
   console.log(`✅ Server running at http://localhost:${port}/dashboard`);
-=======
-    console.log(`✅ Server running at http://localhost:${port}/dashboard`);
->>>>>>> Stashed changes
 });
