@@ -14,7 +14,25 @@
 
   <!-- (Optional) Your overrides -->
   <link href="css/dashboard.css" rel="stylesheet" />
-  <style>.trip-card{min-height:140px}</style>
+  
+  <style>
+    .trip-card { min-height: 140px; }
+
+    /* 🔹 Make all top buttons same height and alignment */
+    .navbar-nav .btn {
+      padding: 0.5rem 1.25rem !important;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      border-radius: 0.35rem;
+      font-weight: 500;
+    }
+
+    /* 🔹 Keep them centered vertically */
+    .navbar-nav .nav-item {
+      display: flex;
+      align-items: center;
+    }
+  </style>
 </head>
 
 <body id="page-top">
@@ -61,18 +79,17 @@
           <!-- Topbar Navbar -->
           <ul class="navbar-nav ms-auto">
             <li class="nav-item mx-1">
-              <button id="refreshButton" class="btn btn-primary btn-sm">
+              <button id="refreshButton" class="btn btn-primary">
                 <i class="fas fa-sync-alt me-1"></i> Refresh
               </button>
             </li>
             <li class="nav-item mx-1">
-              <!-- NEW TRIP BUTTON -->
-              <button id="newTripButton" class="btn btn-success btn-sm">
+              <button id="newTripButton" class="btn btn-success">
                 <i class="fas fa-plus me-1"></i> New Trip
               </button>
             </li>
             <li class="nav-item mx-1">
-              <button id="logoutButton" class="btn btn-outline-danger btn-sm">
+              <button id="logoutButton" class="btn btn-danger">
                 <i class="fas fa-sign-out-alt me-1"></i> Log Out
               </button>
             </li>
@@ -120,6 +137,12 @@
   <!-- Your dashboard logic -->
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // 🔹 Redirect to new trip page
+    const newTripButton = document.getElementById('newTripButton');
+    newTripButton?.addEventListener('click', () => {
+      window.location.href = '/newtrip.html';
+    });
   </script>
   <script src="js/dashboard.js"></script>
 </body>
