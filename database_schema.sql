@@ -31,3 +31,18 @@ CREATE TABLE trip_membership (
     FOREIGN KEY (trip_id) REFERENCES trip(trip_id),
     FOREIGN KEY (user_id) REFERENCES user(user_id)
 );
+-- 4. Create the ItineraryEvent table
+CREATE TABLE itinerary_event (
+    event_id INT AUTO_INCREMENT PRIMARY KEY, 
+    trip_id INT NOT NULL, 
+    title VARCHAR(255) NOT NULL, 
+    type ENUM('Flight', 'Hotel', 'Activity', 'Transport', 'Other') DEFAULT 'Other',
+    start_time DATETIME NOT NULL, 
+    end_time DATETIME, 
+    location VARCHAR(255),
+    details TEXT, 
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+
+    \
+    FOREIGN KEY (trip_id) REFERENCES trip(trip_id) ON DELETE CASCADE
+);

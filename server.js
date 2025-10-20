@@ -204,6 +204,78 @@ app.get('/api/trips', authenticateToken,async (req, res) => {
 
 });
 
+
+app.post('/api/trips', authenticateToken, async (req, res) => {
+  const{name, start_date, end_date} = req.body;
+  const userEmail = req.user.email;
+
+  if(!name) {
+    return res.status(400).json({message: 'Trip name is required.'});
+  
+  }
+  const connection = await createConnection()
+  try{
+    await connection.beginTransaction();
+    const [tripResult] = await connection.execute(
+            'INSERT INTO trip (name, start_date, end_date) VALUES (?, ?, ?)',
+            [name, start_date, end_date] 
+        );
+        const newTripId = tripResult.insertId; 
+        const [[user]] = await connection.execute(
+            'SELECT user_id FROM user WHERE email = ?',
+            [userEmail]
+        );
+        if (!user) {
+            throw new Error('User not found for token email.');
+        }
+        await connection.execute(
+            'INSERT INTO trip_membership (user_id, trip_id, role) VALUES (?, ?, ?)',
+            [user.user_id, newTripId, 'organizer']
+        );
+        await connection.commit();
+        res.status(201).json({ trip_id: newTripId, name, start_date, end_date });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error creating trip:', error);
+        res.status(500).json({ message: 'Error creating trip.' });
+    } finally {
+        await connection.end();
+    }
+});
+
+
+app.post('/api/trips/:tripId/events',authenticateToken, async (req,res) => {
+    const {tripId} = req.params;
+    const {title, type, start_time, end_time, location, details} = req.body;
+
+    if (!title || !start_time) {
+        return res.status(400).json({message: 'Event title and start time are required.'});
+    }
+
+    const connection = await createConnection();
+    try {
+        // 3. Insert the new event into the 'itinerary_event' table
+        const [result] = await connection.execute(
+            'INSERT INTO itinerary_event (trip_id, title, type, start_time, end_time, location, details) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [tripId, title, type, start_time, end_time, location, details]
+        );
+        
+        // 4. Send back a success response with the new event's ID and details
+        res.status(201).json({ event_id: result.insertId, trip_id: parseInt(tripId), ...req.body }); // Return the created event
+
+    } catch (error) {
+        console.error('Error adding event:', error);
+        // Handle potential foreign key constraint error (if tripId doesn't exist)
+        if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+             return res.status(404).json({ message: `Trip with ID ${tripId} not found.` });
+        }
+        res.status(500).json({ message: 'Error adding event.' });
+    } finally {
+        await connection.end();
+    }
+});
+
 //////////////////////////////////////
 // END ROUTES TO HANDLE API REQUESTS
 //////////////////////////////////////
