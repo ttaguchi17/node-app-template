@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>New Trip | Travel App</title>
 
-  <!-- Bootstrap + Font Awesome (from your existing page) -->
+  <!-- Bootstrap + Font Awesome -->
   <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
   <link href="css/sb-admin-2.min.css" rel="stylesheet" />
 
-  <!-- Merged CSS from new-trip.css (inlined so page is self-contained) -->
   <style>
     body {
       font-family: "Poppins", sans-serif;
@@ -17,11 +16,13 @@
       margin: 0;
       padding: 0;
       color: #333;
+      position: relative;
+      min-height: 100vh;
     }
 
     .container {
       max-width: 800px;
-      margin: 40px auto;
+      margin: 40px auto 120px auto;
       background: #fff;
       border-radius: 16px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.1);
@@ -35,10 +36,19 @@
       margin-bottom: 10px;
     }
 
-    p {
-      text-align: center;
-      color: #555;
+    .trip-meta {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
       margin-bottom: 30px;
+    }
+
+    .trip-meta input {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 15px;
     }
 
     .actions {
@@ -80,6 +90,8 @@
 
     .input-group {
       margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
     }
 
     input {
@@ -114,24 +126,122 @@
       border: 1px solid #e5e7eb;
       background: #f9fafb;
       border-radius: 10px;
-      padding: 10px;
-      margin-bottom: 10px;
-      white-space: pre-wrap; /* keeps JSON-ish text readable */
+      padding: 16px;
+      margin-bottom: 12px;
+      color: #111;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
     }
 
-    .detail-item strong {
+    .detail-item .left {
+      flex: 1 1 auto;
+    }
+
+    .detail-item .detail-head {
       color: #1e40af;
+      font-weight: 700;
+      margin-bottom: 8px;
     }
 
-    /* small helper to space the back button area */
-    .back-area { margin-top: 24px; text-align: center; }
+    .detail-item .detail-body div {
+      margin-bottom: 6px;
+    }
+
+    .detail-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-end;
+    }
+
+    .remove-btn {
+      background: transparent;
+      border: 1px solid #e53e3e;
+      color: #e53e3e;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .remove-btn:hover {
+      background: #fef2f2;
+    }
+
+    /* Floating submit button bottom right */
+    #finalSubmitBtn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      padding: 14px 28px;
+      font-size: 1.1rem;
+      border-radius: 50px;
+      background-color: #1e40af;
+      color: white;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease-in-out;
+      z-index: 1000;
+    }
+
+    #finalSubmitBtn:hover {
+      background-color: #1d4ed8;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    #finalSubmitMsg {
+      display: none;
+      margin-top: 12px;
+      font-weight: 600;
+      color: #16a34a;
+      text-align: center;
+    }
+
+    #finalSubmitError {
+      display: none;
+      color: #b91c1c;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .back-area {
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      #finalSubmitBtn {
+        right: 20px;
+        bottom: 20px;
+        font-size: 0.95rem;
+        padding: 10px 20px;
+      }
+    }
   </style>
 </head>
 
 <body>
   <div class="container">
     <h1>New Trip</h1>
-    <p><strong>Trip Name:</strong> Summer Getaway<br><strong>Date:</strong> 2025-07-15</p>
+
+    <!-- Editable Trip Info -->
+    <div class="trip-meta">
+      <div>
+        <label><strong>Trip Name:</strong></label>
+        <input type="text" id="tripNameInput" placeholder="Enter trip name" />
+      </div>
+      <div>
+        <label><strong>Start Date:</strong></label>
+        <input type="date" id="startDateInput" />
+      </div>
+      <div>
+        <label><strong>End Date:</strong></label>
+        <input type="date" id="endDateInput" />
+      </div>
+    </div>
 
     <div class="actions">
       <h3>Add to Trip</h3>
@@ -152,12 +262,15 @@
       <button class="submit" id="submitBtn">Submit</button>
     </div>
 
-    <p id="successMsg" class="success">Trip successfully created ✅</p>
+    <p id="successMsg" class="success">Item added ✅</p>
 
     <div class="details">
       <h3>Trip Details</h3>
       <div id="detailList"></div>
     </div>
+
+    <p id="finalSubmitMsg">🎉 Trip submitted successfully!</p>
+    <p id="finalSubmitError"></p>
 
     <div class="back-area">
       <a href="/dashboard" class="btn btn-primary">
@@ -165,6 +278,9 @@
       </a>
     </div>
   </div>
+
+  <!-- Floating Submit Trip Button -->
+  <button id="finalSubmitBtn"><i class="fas fa-check me-2"></i> Submit Trip</button>
 
   <script>
     const addBtn = document.getElementById('addBtn');
@@ -175,6 +291,15 @@
     const successMsg = document.getElementById('successMsg');
     const detailList = document.getElementById('detailList');
 
+    const tripNameInput = document.getElementById('tripNameInput');
+    const startDateInput = document.getElementById('startDateInput');
+    const endDateInput = document.getElementById('endDateInput');
+
+    const finalSubmitBtn = document.getElementById('finalSubmitBtn');
+    const finalSubmitMsg = document.getElementById('finalSubmitMsg');
+    const finalSubmitError = document.getElementById('finalSubmitError');
+
+    // --- Add Section ---
     addBtn.addEventListener('click', () => {
       addSection.style.display = 'block';
       successMsg.style.display = 'none';
@@ -194,8 +319,7 @@
           <div class="input-group">
             <label>Description</label>
             <input type="text" id="eventDesc" placeholder="Enter description" />
-          </div>
-        `;
+          </div>`;
       } else if (type === "Budget") {
         fieldsDiv.innerHTML = `
           <div class="input-group">
@@ -205,8 +329,7 @@
           <div class="input-group">
             <label>Category</label>
             <input type="text" id="category" placeholder="Enter category" />
-          </div>
-        `;
+          </div>`;
       } else if (type === "Location") {
         fieldsDiv.innerHTML = `
           <div class="input-group">
@@ -216,8 +339,7 @@
           <div class="input-group">
             <label>Address</label>
             <input type="text" id="address" placeholder="Enter address" />
-          </div>
-        `;
+          </div>`;
       } else if (type === "People") {
         fieldsDiv.innerHTML = `
           <div class="input-group">
@@ -227,10 +349,57 @@
           <div class="input-group">
             <label>Role</label>
             <input type="text" id="role" placeholder="Enter role (e.g. traveler)" />
-          </div>
-        `;
+          </div>`;
       }
     });
+
+    // --- Utility ---
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function createDetailItemElement(data) {
+      const item = document.createElement('div');
+      item.classList.add('detail-item');
+      const left = document.createElement('div');
+      left.className = 'left';
+
+      let html = `<div class="detail-head"><strong>${escapeHtml(data.type)}</strong></div><div class="detail-body">`;
+      if (data.type === 'Event') {
+        html += `<div><strong>Event:</strong> ${escapeHtml(data.name)}</div>`;
+        html += `<div><strong>Description:</strong> ${escapeHtml(data.desc)}</div>`;
+      } else if (data.type === 'Budget') {
+        html += `<div><strong>Amount:</strong> $${escapeHtml(data.amount)}</div>`;
+        html += `<div><strong>Category:</strong> ${escapeHtml(data.category)}</div>`;
+      } else if (data.type === 'Location') {
+        html += `<div><strong>Location:</strong> ${escapeHtml(data.location)}</div>`;
+        html += `<div><strong>Address:</strong> ${escapeHtml(data.address)}</div>`;
+      } else if (data.type === 'People') {
+        html += `<div><strong>Name:</strong> ${escapeHtml(data.name)}</div>`;
+        html += `<div><strong>Role:</strong> ${escapeHtml(data.role)}</div>`;
+      }
+      html += `</div>`;
+      left.innerHTML = html;
+
+      const actions = document.createElement('div');
+      actions.className = 'detail-actions';
+      const remove = document.createElement('button');
+      remove.className = 'remove-btn';
+      remove.textContent = 'Remove';
+      remove.addEventListener('click', () => item.remove());
+      actions.appendChild(remove);
+
+      item.appendChild(left);
+      item.appendChild(actions);
+      item.dataset.payload = encodeURIComponent(JSON.stringify(data));
+      return item;
+    }
 
     submitBtn.addEventListener('click', () => {
       const type = addType.value;
@@ -251,13 +420,53 @@
         data.role = document.getElementById('role').value;
       }
 
-      const div = document.createElement('div');
-      div.classList.add('detail-item');
-      div.innerHTML = `<strong>${data.type}</strong>\n${JSON.stringify(data, null, 2)}`;
-      detailList.appendChild(div);
-
+      detailList.appendChild(createDetailItemElement(data));
       successMsg.style.display = 'block';
       addSection.style.display = 'none';
+    });
+
+    // --- Final Submit Handler ---
+    function savePreviewToLocalStorage(trip) {
+      try {
+        const key = 'tripPreviews';
+        const raw = localStorage.getItem(key);
+        const arr = raw ? JSON.parse(raw) : [];
+        const filtered = arr.filter(t => t.id !== trip.id);
+        filtered.unshift(trip);
+        localStorage.setItem(key, JSON.stringify(filtered.slice(0,50)));
+      } catch (e) {
+        console.warn('Could not save preview', e);
+      }
+    }
+
+    finalSubmitBtn.addEventListener('click', async () => {
+      finalSubmitMsg.style.display = 'none';
+      finalSubmitError.style.display = 'none';
+
+      const tripName = tripNameInput.value.trim();
+      const startDate = startDateInput.value;
+      const endDate = endDateInput.value;
+      if (!tripName) return alert('Please enter a trip name.');
+      if (!startDate || !endDate) return alert('Please select both start and end dates.');
+
+      const items = Array.from(detailList.querySelectorAll('.detail-item'));
+      if (items.length === 0) return alert('Please add at least one item.');
+
+      const parsedItems = items.map(it => JSON.parse(decodeURIComponent(it.dataset.payload)));
+
+      const payload = {
+        id: Date.now().toString(36),
+        title: tripName,
+        dates: `${startDate} → ${endDate}`,
+        items: parsedItems
+      };
+
+      savePreviewToLocalStorage(payload);
+      finalSubmitMsg.textContent = '🎉 Trip submitted successfully!';
+      finalSubmitMsg.style.display = 'block';
+
+      // optional redirect
+      // window.location.href = '/dashboard';
     });
   </script>
 </body>
