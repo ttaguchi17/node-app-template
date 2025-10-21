@@ -1,0 +1,148 @@
+/* src/custom-styles.css */
+
+/* 1. Global Theme Overrides (from your styles) */
+/* By overriding these, React-Bootstrap will use your theme colors */
+:root {
+  --bs-blue: #4e73df;
+  --bs-indigo: #6610f2;
+  --bs-purple: #6f42c1;
+  --bs-pink: #e83e8c;
+  --bs-red: #e74a3b;
+  --bs-orange: #fd7e14;
+  --bs-yellow: #f6c23e;
+  --bs-green: #1cc88a;
+  --bs-teal: #20c9a6;
+  --bs-cyan: #36b9cc;
+  --bs-white: #fff;
+  --bs-gray: #858796;
+  --bs-gray-dark: #5a5c69;
+  --bs-primary: #4e73df;
+  --bs-secondary: #858796;
+  --bs-success: #1cc88a;
+  --bs-info: #36b9cc;
+  --bs-warning: #f6c23e;
+  --bs-danger: #e74a3b;
+  --bs-light: #f8f9fc;
+  --bs-dark: #5a5c69;
+  --bs-font-sans-serif: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bs-font-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --bs-body-font-family: var(--bs-font-sans-serif);
+  --bs-body-color: #858796;
+  --bs-body-bg: #f8f9fc;
+}
+
+/* 2. Global Body Font (from your styles) */
+body {
+  font-family: var(--bs-font-sans-serif);
+  background-color: var(--bs-light);
+}
+
+/* 3. Main Layout Structure (keep this) */
+#wrapper {
+  display: flex;
+  height: 100%;
+}
+#content-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow-x: hidden;
+  background-color: var(--bs-light);
+}
+#content {
+  flex: 1 0 auto;
+}
+
+/* 4. Component-Specific Styles */
+
+/* --- Topbar (Header) --- */
+/* We target the 'topbar' class we added to <Navbar> */
+.topbar {
+  height: 4.375rem;
+  background-color: var(--bs-white);
+  box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15) !important;
+  padding: 0 1.5rem;
+  /* The 'shadow' className from React-Bootstrap will handle the shadow */
+}
+/* Utility class for the title text */
+.text-gray-800 {
+  color: #5a5c69 !important;
+}
+
+/* --- Sidebar --- */
+/* (This should already be here from the last step) */
+.custom-sidebar {
+  width: 18rem !important;
+  min-height: 100vh;
+  background-color: var(--bs-primary);
+  background-image: linear-gradient(180deg, var(--bs-primary) 10%, #224abe 100%);
+  background-size: cover;
+  transition: width 0.2s;
+}
+.custom-sidebar.toggled {
+  width: 6.5rem !important;
+}
+.custom-sidebar .sidebar-brand {
+  height: 4.375rem;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+.custom-sidebar .sidebar-brand:hover { color: #fff; }
+.custom-sidebar .sidebar-brand-icon {
+  font-size: 2rem;
+  transform: rotate(-15deg);
+}
+
+.custom-sidebar .sidebar-brand-text {
+  font-size: 1.15rem; /* Control the font size here */
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  display: inline;
+}
+.custom-sidebar.toggled .sidebar-brand-text { display: none; }
+.custom-sidebar hr.sidebar-divider {
+  margin: 0 1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.05rem;
+}
+.custom-sidebar .nav-item { position: relative; }
+.custom-sidebar .nav-item .nav-link {
+  text-align: left;
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+.custom-sidebar .nav-item .nav-link:hover { color: #fff; }
+.custom-sidebar .nav-item.active .nav-link {
+  color: #fff;
+  font-weight: 700;
+}
+.custom-sidebar .nav-link i {
+  font-size: 0.85rem;
+  margin-right: 0.25rem;
+}
+.custom-sidebar .nav-link span {
+  font-size: 0.85rem;
+  display: inline;
+}
+.custom-sidebar.toggled .nav-link {
+  text-align: center;
+  padding: 0.75rem 1rem;
+}
+.custom-sidebar.toggled .nav-link span {
+  font-size: 0.65rem;
+  display: block;
+}
+.custom-sidebar.toggled .nav-link i { margin-right: 0; }
+
+/* --- Footer --- */
+.sticky-footer {
+  padding: 2rem 1.5rem;
+  background-color: var(--white);
+  flex-shrink: 0;
+  text-align: center;
+}
