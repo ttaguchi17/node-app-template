@@ -1,55 +1,54 @@
 // src/pages/DashboardPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Alert } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import NewTripModal from '../components/NewTripModal.jsx';
-import { useNavigate } from 'react-router-dom';
-// We'll create this component next
-// import TripList from '../components/TripList.jsx'; 
+import TripList from '../components/TripList.jsx'; 
+import TripDetailsModal from '../components/TripDetailsModal.jsx'; // 1. ADD this import
 
 function DashboardPage() {
+  // Your existing state is perfect
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSidebarToggled, setIsSidebarToggled] = useState(false);
-  
-  // State for holding trips and loading status
   const [trips, setTrips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // 2. ADD state for the details modal
+  const [selectedTrip, setSelectedTrip] = useState(null); 
 
   const navigate = useNavigate();
   
   // --- Handlers ---
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+  // We'll rename these for clarity
+  const openNewTripModal = () => setIsModalOpen(true);
+  const closeNewTripModal = () => setIsModalOpen(false);
   const toggleSidebar = () => setIsSidebarToggled(!isSidebarToggled);
 
-  // --- Data Fetching Function ---
+  // 3. ADD a handler to close the details modal
+  const closeDetailsModal = () => setSelectedTrip(null);
+
+  // --- Data Fetching Function (Your existing, correct function) ---
   const fetchTrips = async () => {
     setIsLoading(true);
     setError(null);
     const token = localStorage.getItem('token');
-
     try {
       const response = await fetch('http://localhost:3000/api/trips', {
         method: 'GET',
-        headers: {
-          'Authorization': token
-        }
+        headers: { 'Authorization': token }
       });
-
       if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('token'); // Log the user out
-        navigate('/login'); // Redirect to login
-        return; // Stop executing this function
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
       }
-
       if (!response.ok) {
         throw new Error('Failed to fetch trips. Are you logged in?');
       }
-
       const data = await response.json();
-      setTrips(data); // Set the trips state with data from the API
-      
+      setTrips(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,23 +56,23 @@ function DashboardPage() {
     }
   };
 
-  // --- UseEffect for Body Class ---
+  // --- useEffect for Body Class (Your existing, correct code) ---
   useEffect(() => {
     if (isSidebarToggled) document.body.classList.add('sidebar-toggled');
     else document.body.classList.remove('sidebar-toggled');
     return () => document.body.classList.remove('sidebar-toggled');
   }, [isSidebarToggled]);
   
-  // --- UseEffect to Fetch Initial Data ---
+  // --- useEffect to Fetch Initial Data (Your existing, correct code) ---
   useEffect(() => {
-    fetchTrips(); // Fetch trips when the page first loads
+    fetchTrips();
   }, []); // Empty array means this runs once on mount
 
-  // --- Handlers for Topbar ---
-  const handleRefresh = () => fetchTrips(); // Re-use our fetch function
+  // --- Handlers for Topbar (Your existing, correct code) ---
+  const handleRefresh = () => fetchTrips();
   const handleLogout = () => {
     localStorage.removeItem('token');
-    window.location.href = '/login'; 
+    navigate('/login'); // Use navigate
   };
 
   // --- Helper to render main content ---
@@ -89,20 +88,16 @@ function DashboardPage() {
         <div className="col-12">
           <Alert variant="info">
             You have no trips yet. Click 
-            <em onClick={openModal} style={{cursor: 'pointer', textDecoration: 'underline'}}> New Trip </em> 
+            {/* 4. UPDATE to use renamed handler */}
+            <em onClick={openNewTripModal} style={{cursor: 'pointer', textDecoration: 'underline'}}> New Trip </em> 
             to create one.
           </Alert>
         </div>
       );
     }
     
-    // TODO: We will replace this with <TripList trips={trips} />
-    return (
-      <div className="col-12">
-        <h3>Your Trips (Raw Data):</h3>
-        <pre>{JSON.stringify(trips, null, 2)}</pre>
-      </div>
-    );
+    // 5. UPDATE to pass the 'onCardClick' prop to TripList
+    return <TripList trips={trips} onCardClick={setSelectedTrip} />;
   };
 
   return (
@@ -110,7 +105,7 @@ function DashboardPage() {
       <Layout
         isSidebarToggled={isSidebarToggled}
         onToggleSidebar={toggleSidebar}
-        onNewTripClick={openModal}
+        onNewTripClick={openNewTripModal} // 6. UPDATE to use renamed handler
         onRefreshClick={handleRefresh}
         onLogoutClick={handleLogout}
       >
@@ -123,10 +118,18 @@ function DashboardPage() {
         </div>
       </Layout>
 
+      {/* Your existing NewTripModal */}
       <NewTripModal 
         show={isModalOpen} 
-        onClose={closeModal} 
-        onTripCreated={fetchTrips} // Pass the fetchTrips function
+        onClose={closeNewTripModal} // 7. UPDATE to use renamed handler
+        onTripCreated={fetchTrips}
+      />
+
+      {/* 8. ADD the new TripDetailsModal component */}
+      <TripDetailsModal 
+        show={selectedTrip !== null} // Show if a trip is selected
+        onClose={closeDetailsModal}  // Pass the close handler
+        trip={selectedTrip}          // Pass the selected trip data
       />
     </>
   );
