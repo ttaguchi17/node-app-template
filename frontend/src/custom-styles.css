@@ -146,3 +146,89 @@ body {
   flex-shrink: 0;
   text-align: center;
 }
+
+/* --- Details modal --- */
+/* new-trip.css */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+/* We need to adjust this for React Bootstrap's forms */
+.modal-body button, 
+.modal-body select, 
+.modal-body input {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 10px 14px;
+  font-size: 15px;
+}
+
+.modal-body button {
+  background-color: #22c55e;
+  color: white;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.modal-body button:hover {
+  background-color: #16a34a;
+}
+
+.add-section {
+  margin-top: 10px;
+  /* 'display: none' will be controlled by React state */
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.input-group {
+  margin-bottom: 10px;
+}
+
+.modal-body input {
+  width: 100%;
+  margin-top: 5px;
+}
+
+.submit {
+  width: 100%;
+  background-color: #1e40af;
+  color: white;
+  font-weight: 600;
+}
+
+.submit:hover {
+  background-color: #1d4ed8;
+}
+
+.success {
+  text-align: center;
+  color: #16a34a;
+  font-weight: 600;
+  margin-top: 15px;
+}
+
+.details {
+  margin-top: 30px;
+}
+
+.detail-item {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  white-space: pre-wrap; /* keeps JSON-ish text readable */
+}
+
+.detail-item strong {
+  color: #1e40af;
+}
