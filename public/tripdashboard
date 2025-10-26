@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trip Dashboard</title>
+  <title>Travel App Dashboard</title>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
   <style>
     body {
       font-family: "Poppins", sans-serif;
@@ -15,48 +19,69 @@
     }
 
     .sidebar {
-      width: 220px;
+      width: 240px;
       background: #1e40af;
       color: white;
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 20px 10px;
-      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+      padding: 25px 15px;
       position: fixed;
-      left: 0;
       top: 0;
+      left: 0;
+      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
     }
 
-    .sidebar h2 {
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 40px;
+    }
+
+    .sidebar-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+    }
+
+    .logo-icon {
       font-size: 22px;
       color: #ffffff;
     }
 
-    .nav-link {
-      width: 100%;
-      text-align: left;
-      padding: 10px 20px;
-      margin-bottom: 10px;
-      font-weight: 500;
-      color: #e0e7ff;
-      border-radius: 8px;
+    .nav {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 10px;
-      transition: background-color 0.3s;
-      cursor: pointer;
     }
 
-    .nav-link:hover,
-    .nav-link.active {
-      background-color: #3b82f6;
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #e0e7ff;
+      font-weight: 500;
+      font-size: 15px;
+      padding: 10px 15px;
+      border-radius: 8px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .nav-item:hover {
+      background: #3b82f6;
       color: #fff;
     }
 
-    .nav-link span {
+    .nav-item.active {
+      background: #3b82f6;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .nav-item i {
       font-size: 16px;
     }
 
@@ -64,10 +89,13 @@
       margin-top: auto;
       font-size: 13px;
       color: #c7d2fe;
+      text-align: center;
+      padding-top: 20px;
     }
 
+    /* ===== Main Container ===== */
     .container {
-      margin-left: 240px;
+      margin-left: 260px;
       max-width: 900px;
       flex: 1;
       margin-top: 40px;
@@ -76,6 +104,7 @@
       border-radius: 16px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
       padding: 30px;
+      transition: margin-left 0.3s ease-in-out;
     }
 
     .header {
@@ -108,6 +137,7 @@
     .dashboard {
       display: flex;
       gap: 20px;
+      flex-wrap: wrap;
     }
 
     .event-box {
@@ -119,6 +149,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      min-width: 280px;
     }
 
     .event-box h3 {
@@ -164,6 +195,7 @@
       display: flex;
       flex-direction: column;
       gap: 20px;
+      min-width: 260px;
     }
 
     .info-box {
@@ -196,7 +228,6 @@
       width: 70%;
     }
 
-    /* Modal */
     .modal {
       display: none;
       position: fixed;
@@ -247,19 +278,27 @@
   </style>
 </head>
 <body>
+
   <!-- Sidebar -->
   <div class="sidebar">
-    <h2>🌍 Trips</h2>
-    <div class="nav-link active"><span>🏠</span> Home</div>
-    <div class="nav-link"><span>🧳</span> Trips</div>
-    <div class="nav-link"><span>💰</span> Budget</div>
-    <div class="nav-link"><span>📅</span> Events</div>
-    <div class="nav-link"><span>👥</span> People</div>
-    <div class="nav-link"><span>⚙️</span> Settings</div>
+    <div class="sidebar-header">
+      <i class="fa-solid fa-plane-departure logo-icon"></i>
+      <h2>TRAVEL APP</h2>
+    </div>
+
+    <nav class="nav">
+      <a href="#" class="nav-item active"><i class="fa-solid fa-gauge"></i><span>Dashboard</span></a>
+      <a href="#" class="nav-item"><i class="fa-solid fa-suitcase"></i><span>My Trips</span></a>
+      <a href="#" class="nav-item"><i class="fa-solid fa-wallet"></i><span>Budget</span></a>
+      <a href="#" class="nav-item"><i class="fa-solid fa-calendar-day"></i><span>Events</span></a>
+      <a href="#" class="nav-item"><i class="fa-solid fa-user-group"></i><span>People</span></a>
+      <a href="#" class="nav-item"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
+    </nav>
 
     <div class="nav-footer">© 2025 Aroha Careers</div>
   </div>
 
+  <!-- Main Content -->
   <div class="container">
     <div class="header">
       <h1>Welcome, Username 🌴</h1>
@@ -267,7 +306,7 @@
     </div>
 
     <div class="dashboard">
-      <!-- Left: Events -->
+      <!-- Events -->
       <div class="event-box">
         <h3>Events</h3>
         <ul class="event-list" id="eventList">
@@ -277,6 +316,7 @@
         <button class="add-btn" id="addEventBtn">+ Add Event</button>
       </div>
 
+      <!-- Right Section -->
       <div class="right-section">
         <div class="info-box">
           <strong>Trips</strong><br>
@@ -287,9 +327,7 @@
         <div class="info-box">
           <strong>Budget</strong><br>
           Used: $$$ / $$
-          <div class="progress-bar">
-            <div class="progress"></div>
-          </div>
+          <div class="progress-bar"><div class="progress"></div></div>
         </div>
 
         <div class="info-box">
@@ -336,14 +374,8 @@
     };
 
     window.onclick = (e) => {
-      if (e.target === eventModal) {
-        eventModal.style.display = 'none';
-      }
+      if (e.target === eventModal) eventModal.style.display = 'none';
     };
   </script>
 </body>
 </html>
-
-
-
-
