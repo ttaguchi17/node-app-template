@@ -1,0 +1,155 @@
+/* Base layout */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+/* Main centered container used on a few pages (kept for compatibility) */
+.container {
+  background-color: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  width: 90%;
+  max-width: 1100px;
+  margin: 20px auto;
+}
+
+/* Header helpers */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header div {
+  display: flex;
+  gap: 10px;
+}
+
+h1 {
+  margin: 0;
+}
+
+/* Buttons (explicit IDs) */
+#logoutButton {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+#logoutButton:hover { background-color: #0056b3; }
+
+#refreshButton {
+  background-color: #28a745; /* green */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+#refreshButton:hover { background-color: #218838; }
+
+/* Existing small utilities */
+.user-list { margin-top: 20px; }
+.user-item { padding: 10px; border-bottom: 1px solid #ddd; }
+
+/* ----------------- Dashboard-specific styles ----------------- */
+
+/* Keep trip card minimum height consistent with new cards */
+.trip-card { min-height: 140px; }
+
+/* Quick Add inline form */
+#quickAddForm {
+  display: none;
+  max-width: 100%;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+}
+
+/* Make the inline inputs fit nicely and wrap on small screens */
+#quickAddForm .form-control {
+  min-width: 0;
+  border-radius: 6px;
+}
+
+/* Preview (single, larger) */
+#previewGrid {
+  display: flex;
+  justify-content: center; /* center the single preview */
+  margin: 1.5rem 0 2rem 0;
+}
+
+.preview-card {
+  width: 300px;          /* larger */
+  height: 220px;         /* larger */
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e8e8f0;
+  box-shadow: 0 10px 28px rgba(12, 24, 48, 0.08);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .12s ease, box-shadow .12s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.preview-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px rgba(12,24,48,0.14);
+}
+
+.preview-card .pc-title {
+  font-weight: 800;
+  color: #3b3f9b;
+  font-size: 1.15rem;
+  line-height: 1.15;
+}
+
+.preview-card .pc-date {
+  color: #677089;
+  font-size: 0.95rem;
+}
+
+.preview-card .pc-footer {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+}
+
+.preview-card .pc-chip {
+  background:#22c55e;
+  color:white;
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:0.85rem;
+}
+
+/* Delete button (small) */
+.pc-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #fff;
+  border: 1px solid #e53e3e;
+  color: #e53e3e;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  z-index: 5;
+}
+.pc-delete:hover { background: #fff6f6; }
