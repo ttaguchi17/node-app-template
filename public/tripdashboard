@@ -5,217 +5,345 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trip Dashboard</title>
   <style>
-    * {
-      box-sizing: border-box;
+    body {
+      font-family: "Poppins", sans-serif;
+      background: linear-gradient(to bottom right, #eaf1ff, #ffffff);
       margin: 0;
       padding: 0;
-      font-family: 'Poppins', sans-serif;
+      color: #333;
+      display: flex;
     }
 
-    body {
-      background: linear-gradient(to bottom right, #f5f9ff, #e0ebff);
+    .sidebar {
+      width: 220px;
+      background: #1e40af;
+      color: white;
       min-height: 100vh;
-      padding: 40px;
       display: flex;
       flex-direction: column;
-    }
-
-    header {
-      text-align: right;
-      font-size: 18px;
-      color: #333;
-      margin-bottom: 30px;
-    }
-
-    .container {
-      display: grid;
-      grid-template-columns: 1fr 1.5fr;
-      gap: 30px;
-      flex-grow: 1;
-    }
-
-    .card {
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-      padding: 25px;
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
-      cursor: pointer;
-    }
-
-    .card:hover {
-      transform: scale(1.02);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    }
-
-    h2 {
-      color: #1e40af;
-      font-size: 1.8rem;
-      margin-bottom: 15px;
-      display: flex;
       align-items: center;
-      gap: 8px;
+      padding: 20px 10px;
+      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+      position: fixed;
+      left: 0;
+      top: 0;
     }
 
-    h2::before {
-      content: "✦";
-      color: #3b82f6;
-      font-size: 1.4rem;
+    .sidebar h2 {
+      margin-bottom: 40px;
+      font-size: 22px;
+      color: #ffffff;
     }
 
-    .events-list {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-
-    .event-item {
-      background: #f0f7ff;
-      border-left: 5px solid #3b82f6;
-      border-radius: 10px;
-      padding: 12px 15px;
-      color: #333;
+    .nav-link {
+      width: 100%;
+      text-align: left;
+      padding: 10px 20px;
+      margin-bottom: 10px;
       font-weight: 500;
-      transition: background 0.3s ease;
-    }
-
-    .event-item:hover {
-      background: #e0edff;
-    }
-
-    .right {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-    }
-
-    .progress-container {
-      background: #e5e7eb;
-      border-radius: 10px;
-      height: 14px;
-      margin-top: 10px;
-      overflow: hidden;
-    }
-
-    .progress-bar {
-      background: linear-gradient(to right, #3b82f6, #60a5fa);
-      height: 100%;
-      width: 30%; 
-      border-radius: 10px;
-      transition: width 0.4s ease;
-    }
-
-    .people-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      margin-top: 10px;
-    }
-
-    .person {
+      color: #e0e7ff;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       gap: 10px;
-      background: #f5f9ff;
-      padding: 8px 14px;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-      transition: transform 0.2s ease;
+      transition: background-color 0.3s;
+      cursor: pointer;
     }
 
-    .person:hover {
-      transform: scale(1.05);
+    .nav-link:hover,
+    .nav-link.active {
+      background-color: #3b82f6;
+      color: #fff;
     }
 
-    .avatar {
-      width: 35px;
-      height: 35px;
-      border-radius: 50%;
-      background: #3b82f6;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
+    .nav-link span {
       font-size: 16px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
     }
 
-    .text {
-      color: #444;
-      line-height: 1.6;
-      margin-bottom: 5px;
+    .nav-footer {
+      margin-top: auto;
+      font-size: 13px;
+      color: #c7d2fe;
     }
 
-    @media (max-width: 900px) {
-      .container {
-        grid-template-columns: 1fr;
-      }
+    .container {
+      margin-left: 240px;
+      max-width: 900px;
+      flex: 1;
+      margin-top: 40px;
+      margin-bottom: 40px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #1e40af;
+      font-size: 26px;
+      margin: 0;
+    }
+
+    .back-btn {
+      background-color: #1e40af;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+    }
+
+    .back-btn:hover {
+      background-color: #1d4ed8;
+    }
+
+    .dashboard {
+      display: flex;
+      gap: 20px;
+    }
+
+    .event-box {
+      flex: 1;
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .event-box h3 {
+      color: #1e40af;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+
+    .event-list {
+      list-style: none;
+      padding-left: 0;
+      margin-bottom: 15px;
+      overflow-y: auto;
+      max-height: 160px;
+    }
+
+    .event-list li {
+      background: #e0e7ff;
+      padding: 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      text-align: center;
+      color: #1e3a8a;
+      font-weight: 500;
+    }
+
+    .add-btn {
+      background-color: #22c55e;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+    }
+
+    .add-btn:hover {
+      background-color: #16a34a;
+    }
+
+    .right-section {
+      flex: 1.2;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .info-box {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+      transition: transform 0.2s;
+    }
+
+    .info-box:hover {
+      transform: translateY(-3px);
+    }
+
+    .info-box strong {
+      color: #1e40af;
+    }
+
+    .progress-bar {
+      background: #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      height: 10px;
+      margin-top: 10px;
+    }
+
+    .progress {
+      height: 10px;
+      background: linear-gradient(to right, #22c55e, #86efac);
+      width: 70%;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+      width: 300px;
+      text-align: center;
+    }
+
+    .modal-content h3 {
+      margin-top: 0;
+      color: #1e40af;
+    }
+
+    .modal-content input {
+      width: 100%;
+      margin-top: 10px;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+    }
+
+    .modal-content button {
+      margin-top: 10px;
+      background: #22c55e;
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.2s;
+    }
+
+    .modal-content button:hover {
+      background: #16a34a;
     }
   </style>
 </head>
 <body>
-  <header>
-    Welcome (<strong>Cole Ramen</strong>)
-  </header>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>🌍 Trips</h2>
+    <div class="nav-link active"><span>🏠</span> Home</div>
+    <div class="nav-link"><span>🧳</span> Trips</div>
+    <div class="nav-link"><span>💰</span> Budget</div>
+    <div class="nav-link"><span>📅</span> Events</div>
+    <div class="nav-link"><span>👥</span> People</div>
+    <div class="nav-link"><span>⚙️</span> Settings</div>
+
+    <div class="nav-footer">© 2025 Aroha Careers</div>
+  </div>
 
   <div class="container">
-    <!-- Left: Events -->
-    <div class="card">
-      <h2>Events</h2>
-      <div class="events-list">
-        <div class="event-item">✈️ Plane Ride</div>
-        <div class="event-item">🏨 Start Accommodation</div>
-        <div class="event-item">🌅 Astonishing Bodrum Viewpoints</div>
-        <div class="event-item">🍽️ Dinner at Seaside Restaurant</div>
-      </div>
+    <div class="header">
+      <h1>Welcome, Username 🌴</h1>
+      <button class="back-btn">Back</button>
     </div>
 
-    <!-- Right: Trip, Budgeting, People -->
-    <div class="right">
-      <div class="card">
-        <h2>Trip</h2>
-        <p class="text"><strong>Trip Name:</strong> Summer Getaway</p>
-        <p class="text"><strong>Start:</strong> 2025-07-15</p>
-        <p class="text"><strong>End:</strong> 2025-07-20</p>
+    <div class="dashboard">
+      <!-- Left: Events -->
+      <div class="event-box">
+        <h3>Events</h3>
+        <ul class="event-list" id="eventList">
+          <li>Event 1</li>
+          <li>Event 2</li>
+        </ul>
+        <button class="add-btn" id="addEventBtn">+ Add Event</button>
       </div>
 
-      <div class="card">
-        <h2>Budgeting</h2>
-        <p class="text"><strong>Total Budget:</strong> $507.00</p>
-        <p class="text"><strong>Expenses Used:</strong> $150.00</p>
-        <p class="text"><strong>Expenses Left:</strong> $357.00</p>
-        <div class="progress-container">
-          <div class="progress-bar" style="width: 30%;"></div>
+      <div class="right-section">
+        <div class="info-box">
+          <strong>Trips</strong><br>
+          Destination: #1 <br>
+          Dates: start – end
         </div>
-        <p class="text" style="margin-top: 8px; font-size: 0.9rem; color: #666;">
-          30% of budget used
-        </p>
-      </div>
 
-      <div class="card">
-        <h2>People</h2>
-        <div class="people-list">
-          <div class="person">
-            <div class="avatar">C</div>
-            <span>Cole Ramen</span>
+        <div class="info-box">
+          <strong>Budget</strong><br>
+          Used: $$$ / $$
+          <div class="progress-bar">
+            <div class="progress"></div>
           </div>
-          <div class="person">
-            <div class="avatar" style="background:#60a5fa;">S</div>
-            <span>Sarah Lin</span>
-          </div>
-          <div class="person">
-            <div class="avatar" style="background:#2563eb;">A</div>
-            <span>Alex Kumar</span>
-          </div>
-          <div class="person">
-            <div class="avatar" style="background:#1e40af;">J</div>
-            <span>Jessica Doe</span>
-          </div>
+        </div>
+
+        <div class="info-box">
+          <strong>People</strong><br>
+          👤 You<br>
+          👤 #2<br>
+          👤 #3<br>
+          👤 #4
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Modal -->
+  <div class="modal" id="eventModal">
+    <div class="modal-content">
+      <h3>Add New Event</h3>
+      <input type="text" id="eventName" placeholder="Enter event name" />
+      <button id="saveEventBtn">Save</button>
+    </div>
+  </div>
+
+  <script>
+    const addEventBtn = document.getElementById('addEventBtn');
+    const eventModal = document.getElementById('eventModal');
+    const saveEventBtn = document.getElementById('saveEventBtn');
+    const eventList = document.getElementById('eventList');
+    const eventNameInput = document.getElementById('eventName');
+
+    addEventBtn.onclick = () => {
+      eventModal.style.display = 'flex';
+      eventNameInput.value = '';
+      eventNameInput.focus();
+    };
+
+    saveEventBtn.onclick = () => {
+      const name = eventNameInput.value.trim();
+      if (name) {
+        const li = document.createElement('li');
+        li.textContent = name;
+        eventList.appendChild(li);
+        eventModal.style.display = 'none';
+      }
+    };
+
+    window.onclick = (e) => {
+      if (e.target === eventModal) {
+        eventModal.style.display = 'none';
+      }
+    };
+  </script>
 </body>
 </html>
+
+
+
 
