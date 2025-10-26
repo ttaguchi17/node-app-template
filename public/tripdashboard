@@ -1,381 +1,387 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Travel App Dashboard</title>
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-  />
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Travel App — Dashboard</title>
+
+  <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
+  <link href="css/sb-admin-2.min.css" rel="stylesheet" />
+  <link href="css/dashboard.css" rel="stylesheet" />
+
   <style>
-    body {
-      font-family: "Poppins", sans-serif;
-      background: linear-gradient(to bottom right, #eaf1ff, #ffffff);
-      margin: 0;
-      padding: 0;
-      color: #333;
-      display: flex;
-    }
-
-    .sidebar {
-      width: 240px;
-      background: #1e40af;
-      color: white;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      padding: 25px 15px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .sidebar-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 40px;
-    }
-
-    .sidebar-header h2 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #ffffff;
-      letter-spacing: 0.5px;
-    }
-
-    .logo-icon {
-      font-size: 22px;
-      color: #ffffff;
-    }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: #e0e7ff;
+    .trip-card { min-height: 140px; }
+    .navbar-nav .btn {
+      padding: 0.5rem 1.25rem !important;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      border-radius: 0.35rem;
       font-weight: 500;
-      font-size: 15px;
-      padding: 10px 15px;
-      border-radius: 8px;
-      transition: background 0.3s, color 0.3s;
     }
+    .navbar-nav .nav-item { display: flex; align-items: center; }
 
-    .nav-item:hover {
-      background: #3b82f6;
-      color: #fff;
-    }
+    /* Quick Add / preview styles (left-aligned preview, with delete) */
+    #quickAddForm { display: none; max-width: 720px; margin-bottom: 1rem; }
 
-    .nav-item.active {
-      background: #3b82f6;
-      color: #fff;
-      font-weight: 600;
-    }
-
-    .nav-item i {
-      font-size: 16px;
-    }
-
-    .nav-footer {
-      margin-top: auto;
-      font-size: 13px;
-      color: #c7d2fe;
-      text-align: center;
-      padding-top: 20px;
-    }
-
-    /* ===== Main Container ===== */
-    .container {
-      margin-left: 260px;
-      max-width: 900px;
-      flex: 1;
-      margin-top: 40px;
-      margin-bottom: 40px;
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      padding: 30px;
-      transition: margin-left 0.3s ease-in-out;
-    }
-
-    .header {
+    /* place previews at the left corner inside the content area */
+    #previewGrid {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-    }
-
-    .header h1 {
-      color: #1e40af;
-      font-size: 26px;
-      margin: 0;
-    }
-
-    .back-btn {
-      background-color: #1e40af;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 8px 16px;
-      cursor: pointer;
-      transition: background-color 0.2s ease-in-out;
-    }
-
-    .back-btn:hover {
-      background-color: #1d4ed8;
-    }
-
-    .dashboard {
-      display: flex;
-      gap: 20px;
+      justify-content: flex-start; /* left aligned */
+      align-items: flex-start;
+      gap: 16px;
+      margin: 12px 0 18px 0;
       flex-wrap: wrap;
     }
 
-    .event-box {
-      flex: 1;
-      background: #f9fafb;
+    .preview-card {
+      width: 240px;
+      height: 180px;
       border-radius: 12px;
-      padding: 20px;
-      border: 1px solid #e5e7eb;
+      background: #fff;
+      border: 1px solid #e8e8f0;
+      box-shadow: 0 8px 22px rgba(12, 24, 48, 0.06);
+      padding: 14px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      min-width: 280px;
-    }
-
-    .event-box h3 {
-      color: #1e40af;
-      margin-top: 0;
-      margin-bottom: 15px;
-    }
-
-    .event-list {
-      list-style: none;
-      padding-left: 0;
-      margin-bottom: 15px;
-      overflow-y: auto;
-      max-height: 160px;
-    }
-
-    .event-list li {
-      background: #e0e7ff;
-      padding: 8px;
-      border-radius: 6px;
-      margin-bottom: 8px;
-      text-align: center;
-      color: #1e3a8a;
-      font-weight: 500;
-    }
-
-    .add-btn {
-      background-color: #22c55e;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px;
-      cursor: pointer;
-      transition: background-color 0.2s ease-in-out;
-    }
-
-    .add-btn:hover {
-      background-color: #16a34a;
-    }
-
-    .right-section {
-      flex: 1.2;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      min-width: 260px;
-    }
-
-    .info-box {
-      background: #f9fafb;
-      border-radius: 12px;
-      padding: 20px;
-      border: 1px solid #e5e7eb;
-      transition: transform 0.2s;
-    }
-
-    .info-box:hover {
-      transform: translateY(-3px);
-    }
-
-    .info-box strong {
-      color: #1e40af;
-    }
-
-    .progress-bar {
-      background: #e5e7eb;
-      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform .12s ease, box-shadow .12s ease;
+      position: relative;
       overflow: hidden;
-      height: 10px;
-      margin-top: 10px;
+    }
+    .preview-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 32px rgba(12,24,48,0.10);
     }
 
-    .progress {
-      height: 10px;
-      background: linear-gradient(to right, #22c55e, #86efac);
-      width: 70%;
+    .preview-card .pc-title {
+      font-weight: 800;
+      color: #3b3f9b;
+      font-size: 1.05rem;
+      line-height: 1.15;
     }
 
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.4);
-      justify-content: center;
-      align-items: center;
+    .preview-card .pc-date {
+      color: #677089;
+      font-size: 0.9rem;
     }
 
-    .modal-content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-      width: 300px;
-      text-align: center;
+    .preview-card .pc-footer {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
     }
 
-    .modal-content h3 {
-      margin-top: 0;
-      color: #1e40af;
+    .preview-card .pc-chip {
+      background:#22c55e;
+      color:white;
+      padding:6px 10px;
+      border-radius:10px;
+      font-size:0.85rem;
     }
 
-    .modal-content input {
-      width: 100%;
-      margin-top: 10px;
-      padding: 8px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
+    /* Strong, always-visible Delete button on preview */
+    .preview-card { position: relative; } /* ensure absolute positioning works */
+
+    .pc-delete {
+      display: inline-block !important;
+      position: absolute !important;
+      top: 8px !important;
+      right: 8px !important;
+      background: #dc2626 !important;       /* bright red */
+      color: #fff !important;               /* white text */
+      padding: 8px 12px !important;         /* slightly larger so it's obvious */
+      border: none !important;
+      border-radius: 8px !important;
+      font-size: 0.95rem !important;
+      font-weight: 700 !important;
+      cursor: pointer !important;
+      z-index: 9999 !important;             /* very high so it sits over everything */
+      box-shadow: 0 6px 16px rgba(220,34,34,0.22) !important;
+      transition: transform 0.08s ease, background 0.12s ease !important;
+      opacity: 1 !important;
+    }
+    .pc-delete:hover {
+      background: #b91c1c !important;
+      transform: translateY(-1px) !important;
+    }
+    .pc-delete:focus { outline: 2px solid rgba(220,38,38,0.15); outline-offset: 2px; }
+
+    /* small screens */
+    @media (max-width: 600px) {
+      .preview-card { width: calc(100% - 24px); height: auto; padding: 12px; }
     }
 
-    .modal-content button {
-      margin-top: 10px;
-      background: #22c55e;
-      border: none;
-      color: white;
-      padding: 8px 16px;
-      border-radius: 8px;
+    /* Quick Add Toggle button */
+    #quickAddToggle {
+      margin-right: .75rem;
+      background: transparent;
+      color: #3b3f9b;
+      border: 1px dashed #d1d5db;
+      padding: .35rem .6rem;
+      border-radius: .35rem;
       cursor: pointer;
-      font-weight: 600;
-      transition: background-color 0.2s;
     }
-
-    .modal-content button:hover {
-      background: #16a34a;
-    }
+    #quickAddToggle:hover { background: #f7f8fb; }
   </style>
 </head>
-<body>
 
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <i class="fa-solid fa-plane-departure logo-icon"></i>
-      <h2>TRAVEL APP</h2>
-    </div>
+<body id="page-top">
+  <div id="wrapper">
+    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+      <a class="sidebar-brand d-flex align-items-center justify-content-center" href="/dashboard">
+        <div class="sidebar-brand-icon rotate-n-15">
+          <i class="fas fa-plane-departure"></i>
+        </div>
+        <div class="sidebar-brand-text mx-3">Travel App</div>
+      </a>
+      <hr class="sidebar-divider my-0" />
+      <li class="nav-item active">
+        <a class="nav-link" href="/dashboard">
+          <i class="fas fa-fw fa-tachometer-alt"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <hr class="sidebar-divider" />
+    </ul>
 
-    <nav class="nav">
-      <a href="#" class="nav-item active"><i class="fa-solid fa-gauge"></i><span>Dashboard</span></a>
-      <a href="#" class="nav-item"><i class="fa-solid fa-suitcase"></i><span>My Trips</span></a>
-      <a href="#" class="nav-item"><i class="fa-solid fa-wallet"></i><span>Budget</span></a>
-      <a href="#" class="nav-item"><i class="fa-solid fa-calendar-day"></i><span>Events</span></a>
-      <a href="#" class="nav-item"><i class="fa-solid fa-user-group"></i><span>People</span></a>
-      <a href="#" class="nav-item"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
-    </nav>
+    <div id="content-wrapper" class="d-flex flex-column">
+      <div id="content">
+        <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+          <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
+            <i class="fa fa-bars"></i>
+          </button>
+          <h1 class="h5 mb-0 text-gray-800 me-3">My Trips</h1>
 
-    <div class="nav-footer">© 2025 Aroha Careers</div>
-  </div>
+          <ul class="navbar-nav ms-auto">
+            <!-- Quick Add toggle button (explicit) -->
+            <li class="nav-item mx-1">
+              <button id="quickAddToggle" class="btn" title="Show inline quick add">Quick Add</button>
+            </li>
 
-  <!-- Main Content -->
-  <div class="container">
-    <div class="header">
-      <h1>Welcome, Username 🌴</h1>
-      <button class="back-btn">Back</button>
-    </div>
+            <li class="nav-item mx-1">
+              <button id="refreshButton" class="btn btn-primary">
+                <i class="fas fa-sync-alt me-1"></i> Refresh
+              </button>
+            </li>
+            <li class="nav-item mx-1">
+              <button id="newTripButton" class="btn btn-success">
+                <i class="fas fa-plus me-1"></i> New Trip
+              </button>
+            </li>
+            <li class="nav-item mx-1">
+              <button id="logoutButton" class="btn btn-danger">
+                <i class="fas fa-sign-out-alt me-1"></i> Log Out
+              </button>
+            </li>
+          </ul>
+        </nav>
 
-    <div class="dashboard">
-      <!-- Events -->
-      <div class="event-box">
-        <h3>Events</h3>
-        <ul class="event-list" id="eventList">
-          <li>Event 1</li>
-          <li>Event 2</li>
-        </ul>
-        <button class="add-btn" id="addEventBtn">+ Add Event</button>
+        <div class="container-fluid">
+          <!-- Quick Add inline form (hidden by default) -->
+          <div id="quickAddForm" class="card shadow-sm p-3 mb-3" aria-hidden="true">
+            <div class="d-flex gap-2 align-items-center">
+              <input id="qTripName" type="text" class="form-control" placeholder="Trip name (e.g. Summer Getaway)">
+              <input id="qTripDate" type="date" class="form-control" style="max-width:160px;">
+              <button id="qSubmit" class="btn btn-primary">Add</button>
+              <button id="qCancel" class="btn btn-light">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Left-corner preview area -->
+          <div id="previewGrid" class="mt-2 mb-4" aria-live="polite"></div>
+
+          <!-- Dashboard trip cards -->
+          <div class="row" id="trips-container"></div>
+        </div>
       </div>
 
-      <!-- Right Section -->
-      <div class="right-section">
-        <div class="info-box">
-          <strong>Trips</strong><br>
-          Destination: #1 <br>
-          Dates: start – end
+      <footer class="sticky-footer bg-white">
+        <div class="container my-auto">
+          <div class="copyright text-center my-auto">
+            <span>© <span id="year"></span> Travel App</span>
+          </div>
         </div>
-
-        <div class="info-box">
-          <strong>Budget</strong><br>
-          Used: $$$ / $$
-          <div class="progress-bar"><div class="progress"></div></div>
-        </div>
-
-        <div class="info-box">
-          <strong>People</strong><br>
-          👤 You<br>
-          👤 #2<br>
-          👤 #3<br>
-          👤 #4
-        </div>
-      </div>
+      </footer>
     </div>
   </div>
 
-  <!-- Modal -->
-  <div class="modal" id="eventModal">
-    <div class="modal-content">
-      <h3>Add New Event</h3>
-      <input type="text" id="eventName" placeholder="Enter event name" />
-      <button id="saveEventBtn">Save</button>
-    </div>
-  </div>
+  <a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+  </a>
+
+  <!-- vendor scripts -->
+  <script src="vendor/jquery/jquery.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+
+  <!-- admin scripts -->
+  <script src="js/sb-admin-2.min.js"></script>
+  <script src="js/dashboard.js"></script>
+
+  <!-- Inline quick-add behavior with left-aligned preview -->
+  <script>
+    (function () {
+      const quickAddForm = document.getElementById('quickAddForm');
+      const quickAddToggle = document.getElementById('quickAddToggle');
+      const qTripName = document.getElementById('qTripName');
+      const qTripDate = document.getElementById('qTripDate');
+      const qSubmit = document.getElementById('qSubmit');
+      const qCancel = document.getElementById('qCancel');
+      const previewGrid = document.getElementById('previewGrid');
+      const tripsContainer = document.getElementById('trips-container');
+
+      function escapeHtml(s){
+        return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      }
+
+      function removePreviewFromLocalStorage(id) {
+        try {
+          const key = 'tripPreviews';
+          const raw = localStorage.getItem(key);
+          if (!raw) return;
+          const arr = JSON.parse(raw);
+          const filtered = arr.filter(t => t.id !== id);
+          localStorage.setItem(key, JSON.stringify(filtered));
+        } catch (e) { console.warn('removePreviewFromLocalStorage', e); }
+      }
+
+      function createPreviewCard({ id, name, date }) {
+        // create a preview card (prepended to the left area)
+        const card = document.createElement('div');
+        card.className = 'preview-card';
+        card.dataset.previewId = id;
+
+        card.innerHTML = `
+          <button class="pc-delete" title="Delete preview">Delete</button>
+          <div><div class="pc-title">${escapeHtml(name)}</div></div>
+          <div class="pc-footer">
+            <div class="pc-date">${escapeHtml(date || '')}</div>
+            <div class="pc-chip">Preview</div>
+          </div>`;
+
+        // delete handler (red button)
+        const delBtn = card.querySelector('.pc-delete');
+        if (delBtn) {
+          delBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (!confirm('Delete this preview?')) return;
+            card.remove();
+            // remove client-created dashboard cards that have same preview id
+            document.querySelectorAll('[data-preview-id]').forEach(dc => {
+              if (dc.dataset.previewId === id) dc.remove();
+            });
+            removePreviewFromLocalStorage(id);
+          });
+        }
+
+        // click on preview opens newtrip
+        card.addEventListener('click', () => {
+          window.location.href = 'newtrip.html';
+        });
+
+        // prepend so newest previews appear top-left
+        previewGrid.prepend(card);
+        return card;
+      }
+
+      function createDashboardCard(trip) {
+        // prevent duplicate client-created card for same preview id
+        document.querySelectorAll('[data-preview-id]').forEach(dc => {
+          if (dc.dataset.previewId === trip.id) dc.remove();
+        });
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'col-xl-4 col-md-6 mb-4';
+        wrapper.dataset.previewId = trip.id || '';
+        wrapper.innerHTML = `
+          <div class="card border-left-primary shadow h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <div class="me-3">
+                  <div class="text-xs text-uppercase text-muted mb-1">${escapeHtml(trip.destination || 'Trip')}</div>
+                  <div class="h5 mb-1 text-gray-800">${escapeHtml(trip.title || 'Untitled Trip')}</div>
+                  <div class="small text-muted">${escapeHtml(trip.dates || '')}</div>
+                  ${trip.notes ? `<div class="small mt-2">${escapeHtml(trip.notes)}</div>` : ''}
+                </div>
+                <div class="text-end">
+                  <span class="badge bg-primary">${escapeHtml(trip.status || 'Planned')}</span>
+                  <div class="mt-3">
+                    <i class="fas fa-suitcase-rolling fa-2x text-gray-300"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        tripsContainer.prepend(wrapper);
+        return wrapper;
+      }
+
+      // Quick add toggle
+      quickAddToggle?.addEventListener('click', () => {
+        if (!quickAddForm) return;
+        const now = quickAddForm.style.display === 'block';
+        quickAddForm.style.display = now ? 'none' : 'block';
+        quickAddForm.setAttribute('aria-hidden', now ? 'true' : 'false');
+        if (!now) qTripName?.focus();
+      });
+
+      qCancel?.addEventListener('click', () => { if (quickAddForm) { quickAddForm.style.display = 'none'; quickAddForm.setAttribute('aria-hidden','true'); } });
+
+      qSubmit?.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const name = qTripName.value.trim();
+        const date = qTripDate.value;
+        if (!name) { qTripName.focus(); return alert('Please enter a trip name'); }
+
+        const id = Date.now().toString(36);
+        // add preview to left corner
+        createPreviewCard({ id, name, date });
+
+        // add a dashboard card (client-only)
+        createDashboardCard({ id, title: name, destination: name, dates: date, status: 'Planned' });
+
+        // persist preview list (keeps many previews, newest first)
+        try {
+          const key = 'tripPreviews';
+          const raw = localStorage.getItem(key);
+          const arr = raw ? JSON.parse(raw) : [];
+          arr.unshift({ id, title: name, dates: date });
+          localStorage.setItem(key, JSON.stringify(arr.slice(0,50)));
+        } catch (e) { console.warn('save preview', e); }
+
+        qTripName.value = '';
+        qTripDate.value = '';
+        quickAddForm.style.display = 'none';
+        quickAddForm.setAttribute('aria-hidden','true');
+      });
+
+      // On page load, render saved previews from localStorage (left to right, newest first)
+      (function renderSavedPreviews() {
+        try {
+          const raw = localStorage.getItem('tripPreviews');
+          if (!raw) return;
+          const previews = JSON.parse(raw);
+          if (!Array.isArray(previews)) return;
+          previews.forEach(p => {
+            createPreviewCard({ id: p.id, name: p.title || p.name, date: p.dates || p.date || '' });
+            if (tripsContainer) {
+              createDashboardCard({ id: p.id, title: p.title || p.name, destination: p.title || p.name, dates: p.dates || p.date, status: 'Planned' });
+            }
+          });
+        } catch (e) {
+          console.warn('renderSavedPreviews', e);
+        }
+      })();
+
+    })();
+  </script>
 
   <script>
-    const addEventBtn = document.getElementById('addEventBtn');
-    const eventModal = document.getElementById('eventModal');
-    const saveEventBtn = document.getElementById('saveEventBtn');
-    const eventList = document.getElementById('eventList');
-    const eventNameInput = document.getElementById('eventName');
-
-    addEventBtn.onclick = () => {
-      eventModal.style.display = 'flex';
-      eventNameInput.value = '';
-      eventNameInput.focus();
-    };
-
-    saveEventBtn.onclick = () => {
-      const name = eventNameInput.value.trim();
-      if (name) {
-        const li = document.createElement('li');
-        li.textContent = name;
-        eventList.appendChild(li);
-        eventModal.style.display = 'none';
-      }
-    };
-
-    window.onclick = (e) => {
-      if (e.target === eventModal) eventModal.style.display = 'none';
-    };
+    document.getElementById('year').textContent = new Date().getFullYear();
   </script>
 </body>
 </html>
