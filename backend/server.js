@@ -172,19 +172,37 @@ app.post('/api/trips', authenticateToken, async (req, res) => {
     res.status(201).json({ trip_id: newTripId, name, start_date, end_date });
     // --- END OF FIX ---
 
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error creating trip:', error);
+        res.status(500).json({ message: 'Error creating trip.' });
+    } finally {
+        await connection.end();
+    }
+  });
+// Route: Get all events for a trip
+app.get('/api/trips/:tripId/events', authenticateToken, async (req, res) => {
+  const { tripId } = req.params;
+
+  try {
+    const connection = await createConnection();
+    const [events] = await connection.execute(
+      'SELECT * FROM itinerary_event WHERE trip_id = ? ORDER BY start_time ASC',
+      [tripId]
+    );
+    await connection.end();
+    res.status(200).json(events);
   } catch (error) {
-      await connection.rollback();
-      console.error('Error creating trip:', error);
-      res.status(500).json({ message: 'Error creating trip.' });
-  } finally {
-      await connection.end();
+    console.error('Error fetching events:', error);
+    res.status(500).json({ message: 'Error fetching events.' });
   }
 });
 
-// Route: Add an event to a trip
+// Route: Add an event to a trip (Corrected Version)
 app.post('/api/trips/:tripId/events', authenticateToken, async (req,res) => {
-    const {tripId} = req.params;
-    const {title, type, start_time, end_time, location, details} = req.body;
+    const { tripId } = req.params;
+    // Get all possible fields from the body
+    const { title, type, start_time, end_time, location, details } = req.body;
 
     if (!title || !start_time) {
         return res.status(400).json({message: 'Event title and start time are required.'});
@@ -192,14 +210,42 @@ app.post('/api/trips/:tripId/events', authenticateToken, async (req,res) => {
 
     const connection = await createConnection();
     try {
+        // --- THIS IS THE FIX ---
+        
+        // We use the standard VALUES syntax,
+        // using '|| null' to safely handle any fields that 
+        // were not provided (e.g., end_time, location).
+        
         const [result] = await connection.execute(
             'INSERT INTO itinerary_event (trip_id, title, type, start_time, end_time, location, details) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [tripId, title, type, start_time, end_time, location, details]
+            [
+              tripId,
+              title,
+              type || 'Other',    // Default to 'Other' if not provided
+              start_time,
+              end_time || null,   // Send null if empty or undefined
+              location || null, // Send null if empty or undefined
+              details || null   // Send null if empty or undefined
+            ]
         );
         
-        res.status(201).json({ event_id: result.insertId, trip_id: parseInt(tripId), ...req.body });
+        // --- END OF FIX ---
+        
+        // Send back the data we just inserted
+        res.status(201).json({
+          event_id: result.insertId,
+          trip_id: parseInt(tripId),
+          title,
+          type: type || 'Other',
+          start_time,
+          end_time: end_time || null,
+          location: location || null,
+          details: details || null
+        });
+
     } catch (error) {
         console.error('Error adding event:', error);
+        // This will catch if the tripId itself doesn't exist
         if (error.code === 'ER_NO_REFERENCED_ROW_2') {
              return res.status(404).json({ message: `Trip with ID ${tripId} not found.` });
         }
@@ -215,4 +261,4 @@ app.post('/api/trips/:tripId/events', authenticateToken, async (req,res) => {
 // Start the server
 app.listen(port, () => {
   console.log(`✅ Backend API server running at http://localhost:${port}`);
-});
+})
