@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
+import TripDetailsModal from '../components/TripDetailsModal.jsx';
 
 const PREVIEWS_KEY = 'tripPreviews';
 
@@ -23,9 +24,9 @@ export default function TripDetailsPage() {
   const navigate = useNavigate();
 
   const [trip, setTrip] = useState(null);
-  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
+  const [showModal, setShowModal] = useState(true); // show modal when page loads
 
   useEffect(() => {
     let cancelled = false;
@@ -34,9 +35,9 @@ export default function TripDetailsPage() {
       setLoading(true);
       setFetchError(false);
 
-      // Try server endpoint
+      // Try server endpoint for trip (and events if returned)
       try {
-        const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}/events`);
+        const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}`);
         if (!res.ok) {
           // treat non-OK as failure and fall back to local
           throw new Error(`server returned ${res.status}`);
@@ -44,16 +45,21 @@ export default function TripDetailsPage() {
         const json = await res.json();
         if (cancelled) return;
 
-        // server may return { trip, events } or events array
-        if (json.trip) setTrip(json.trip);
-        if (Array.isArray(json.events)) setEvents(json.events);
-        else if (Array.isArray(json)) setEvents(json);
-        else setEvents([]);
-
+        // server may return { trip, events } or trip object
+        const serverTrip = json.trip || json;
+        // normalize to contain id and trip_id for downstream code
+        const normalized = {
+          id: serverTrip.id ?? serverTrip.trip_id ?? serverTrip.tripId ?? tripId,
+          trip_id: serverTrip.trip_id ?? serverTrip.id ?? serverTrip.tripId ?? tripId,
+          title: serverTrip.title ?? serverTrip.name ?? serverTrip.trip_name ?? '',
+          dates: serverTrip.dates ?? serverTrip.date_range ?? '',
+          notes: serverTrip.notes ?? serverTrip.description ?? ''
+        };
+        setTrip(normalized);
         setLoading(false);
         return;
       } catch (err) {
-        console.info('Could not fetch events from API, falling back to localPreview', err);
+        console.info('Could not fetch trip from API, falling back to localPreview', err);
         setFetchError(true);
       }
 
@@ -63,18 +69,16 @@ export default function TripDetailsPage() {
         if (!cancelled) {
           setTrip({
             id: preview.id,
+            trip_id: preview.id,
             title: preview.title || preview.name || 'Untitled Trip',
             dates: preview.dates || '',
             notes: preview.notes || ''
           });
-          // No structured events in preview - show placeholder
-          setEvents([]);
           setLoading(false);
         }
       } else {
         if (!cancelled) {
           setTrip(null);
-          setEvents([]);
           setLoading(false);
         }
       }
@@ -93,72 +97,46 @@ export default function TripDetailsPage() {
     else navigate('/dashboard');
   }
 
+  // onClose handler passed to modal
+  function handleModalClose() {
+    setShowModal(false);
+    // keep consistent navigation behavior
+    close();
+  }
+
   return (
     <Layout>
-      {/* "Modal" overlay — using Bootstrap modal markup but rendered by React */}
-      <div className="modal-backdrop fade show" style={{ opacity: 0.45 }} />
-
-      <div className="modal fade show" tabIndex="-1" role="dialog" style={{ display: 'block' }} aria-modal="true">
-        <div className="modal-dialog modal-xl modal-dialog-centered" role="document">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">{trip ? trip.title : 'Trip Details'}</h5>
-              <button type="button" className="btn-close" aria-label="Close" onClick={close} />
-            </div>
-
-            <div className="modal-body">
-              {/* Add to Trip area */}
-              <h4 className="h5 mb-3">Add to Trip</h4>
-
-              <div className="mb-3">
-                <select className="form-select" aria-label="Add to trip select">
-                  <option value="">Choose what to add</option>
-                  <option value="flight">Flight</option>
-                  <option value="hotel">Hotel</option>
-                  <option value="activity">Activity</option>
-                </select>
-              </div>
-
-              {/* Fetch error alert */}
-              {fetchError && (
-                <div className="alert alert-danger" role="alert">
-                  Could not fetch events.
-                </div>
-              )}
-
-              <h4 className="h5 mt-4">Itinerary</h4>
-              {loading && <div className="small text-muted mb-3">Loading events...</div>}
-
-              {!loading && events.length === 0 && (
-                <div className="small text-muted mb-3">(No events added yet.)</div>
-              )}
-
-              {!loading && events.length > 0 && (
-                <div className="list-group mb-3">
-                  {events.map((ev, i) => (
-                    <div key={ev.id ?? i} className="list-group-item">
-                      <div className="d-flex justify-content-between">
-                        <div>
-                          <div className="fw-bold">{ev.title ?? ev.name ?? 'Event'}</div>
-                          {ev.location && <div className="small text-muted">{ev.location}</div>}
-                          {ev.description && <div className="small mt-1">{ev.description}</div>}
-                        </div>
-                        <div className="text-end small text-muted">
-                          {ev.time ?? ev.when ?? ''}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={close}>Close</button>
-            </div>
-          </div>
+      {/* Optionally show a small loader while we fetch the trip metadata */}
+      {loading && (
+        <div className="p-3">
+          <div className="small text-muted">Loading trip...</div>
         </div>
-      </div>
+      )}
+
+      {/* If trip failed to load and no preview exists, show an error before opening modal */}
+      {!loading && !trip && (
+        <div className="p-3">
+          <div className="alert alert-warning">Could not find the trip details.</div>
+        </div>
+      )}
+
+      {/* Render TripDetailsModal when showModal is true.
+          The modal component will fetch events itself. We ensure the trip prop has both id and trip_id to be defensive. */}
+      {showModal && trip && (
+        <TripDetailsModal
+          trip={{
+            ...trip,
+            // ensure both identifiers exist for backward compatibility
+            trip_id: trip.trip_id ?? trip.id ?? tripId,
+            id: trip.id ?? trip.trip_id ?? tripId
+          }}
+          show={showModal}
+          onClose={handleModalClose}
+        />
+      )}
+
+      {/* If you prefer to still render a fallback UI (non-modal) for small screens you can add it here.
+          For now, the modal is the primary interface. */}
     </Layout>
   );
 }
