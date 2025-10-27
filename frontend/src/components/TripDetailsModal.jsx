@@ -1,5 +1,5 @@
 // src/components/TripDetailsModal.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Row, Col, Form, Alert, ListGroup, Badge } from 'react-bootstrap';
 
 function TripDetailsModal({ trip, show, onClose }) {
@@ -19,7 +19,22 @@ function TripDetailsModal({ trip, show, onClose }) {
 
   // --- State for the Event List ---
   const [events, setEvents] = useState([]);
-  
+
+  const firstFieldRef = useRef(null);
+
+  // Helper: build auth header value safely (adds Bearer if missing)
+  const buildAuthHeader = (raw) => {
+    if (!raw) return undefined;
+    if (raw.toLowerCase().startsWith('bearer ')) return raw;
+    return `Bearer ${raw}`;
+  };
+
+  // Normalize trip id (works with either trip.trip_id or trip.id)
+  const getTripId = () => {
+    if (!trip) return null;
+    return trip.trip_id ?? trip.id ?? trip.tripId ?? null;
+  };
+
   // --- Helper Function to Reset Form ---
   const resetForm = () => {
     setTitle('');
@@ -28,42 +43,77 @@ function TripDetailsModal({ trip, show, onClose }) {
     setEndTime('');
     setLocation('');
     setDetails('');
+    setAddType('');
   };
 
   // --- Function to Fetch Events ---
   const fetchEvents = async (tripId) => {
     if (!tripId) return; // Don't fetch if there's no trip
-
-    const token = localStorage.getItem('token');
+    const raw = localStorage.getItem('token');
+    const auth = buildAuthHeader(raw);
     try {
-      const response = await fetch(`http://localhost:3000/api/trips/${tripId}/events`, {
-        headers: { 'Authorization': token }
+      const response = await fetch(`/api/trips/${encodeURIComponent(tripId)}/events`, {
+        headers: auth ? { Authorization: auth } : undefined
       });
       if (!response.ok) {
-        throw new Error('Could not fetch events.');
+        // non-OK -> try to parse error message if available
+        let errText = `Could not fetch events (status ${response.status})`;
+        try {
+          const errJson = await response.json();
+          if (errJson?.message) errText = errJson.message;
+        } catch (e) {}
+        throw new Error(errText);
       }
       const data = await response.json();
-      setEvents(data); // Set the events list
+      // Accept either { events: [...] } or an array directly
+      const list = Array.isArray(data) ? data : Array.isArray(data.events) ? data.events : [];
+      setEvents(list);
+      setMessage('');
     } catch (err) {
-      setMessage(err.message);
+      console.warn('fetchEvents error', err);
+      setMessage(err.message || 'Failed to load events.');
+      setEvents([]);
     }
   };
 
   // --- UseEffect to Fetch Events ---
-  // This runs when the modal is shown or when the 'trip' prop changes.
+  // Runs when the modal is shown or when the 'trip' prop changes.
   useEffect(() => {
-    if (show && trip) {
-      fetchEvents(trip.trip_id);
+    if (show && getTripId()) {
+      // clear previous message and fetch
+      setMessage('');
+      fetchEvents(getTripId());
     }
-  }, [show, trip]); // Dependencies
+    // when modal opens, focus first field if add-section visible
+    if (show && showAddSection && firstFieldRef.current) {
+      firstFieldRef.current.focus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, trip]);
+
+  // When the add section becomes visible, focus the first input
+  useEffect(() => {
+    if (showAddSection && firstFieldRef.current) {
+      firstFieldRef.current.focus();
+    }
+  }, [showAddSection]);
 
   // --- Form Submit Handler ---
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    setIsLoading(true);
     setMessage('');
-    
+    setIsLoading(true);
+
+    const tripId = getTripId();
+    if (!tripId) {
+      setMessage('No trip selected.');
+      setIsLoading(false);
+      return;
+    }
+
+    const raw = localStorage.getItem('token');
+    const auth = buildAuthHeader(raw);
+
     if (addType === 'Event') {
       // 1. Validation
       if (!title || !startTime) {
@@ -71,14 +121,20 @@ function TripDetailsModal({ trip, show, onClose }) {
         setIsLoading(false);
         return;
       }
-      
+      // optional: validate end >= start if both provided
+      if (startTime && endTime && new Date(endTime) < new Date(startTime)) {
+        setMessage('End time must be after start time.');
+        setIsLoading(false);
+        return;
+      }
+
       // 2. Send ALL data from the form
       try {
-        const response = await fetch(`http://localhost:3000/api/trips/${trip.trip_id}/events`, {
+        const response = await fetch(`/api/trips/${encodeURIComponent(tripId)}/events`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token
+            ...(auth ? { Authorization: auth } : {})
           },
           body: JSON.stringify({
             title: title,
@@ -91,18 +147,37 @@ function TripDetailsModal({ trip, show, onClose }) {
         });
 
         if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.message || 'Failed to add event');
+          // Try parse server message
+          let errMsg = `Failed to add event (status ${response.status})`;
+          try {
+            const errJson = await response.json();
+            if (errJson?.message) errMsg = errJson.message;
+          } catch (e) {}
+          throw new Error(errMsg);
         }
 
-        // 3. Success
+        // Success -> parse returned event if available
+        let created = null;
+        try {
+          created = await response.json();
+        } catch (e) {
+          // response may be empty; that's fine
+        }
+
         setMessage('Event added successfully!');
-        setShowAddSection(false); // Hide the form
-        resetForm(); // Clear the form fields
-        fetchEvents(trip.trip_id); // 4. REFRESH the event list!
-        
+        setShowAddSection(false); // hide the form
+        resetForm(); // clear the form fields
+
+        // If server returned the created event, prepend it; otherwise refetch
+        if (created && (created.event_id || created.id)) {
+          setEvents(prev => [created, ...prev]);
+        } else {
+          // fallback: refresh full list
+          fetchEvents(tripId);
+        }
       } catch (err) {
-        setMessage(err.message);
+        console.error('add event error', err);
+        setMessage(err.message || 'Failed to add event.');
       } finally {
         setIsLoading(false);
       }
@@ -111,19 +186,25 @@ function TripDetailsModal({ trip, show, onClose }) {
       setIsLoading(false);
     }
   };
-  
+
   // Renders the correct form fields
   const renderFields = () => {
     if (addType !== 'Event') return null;
 
     return (
       <>
-        {/* We replaced 'input-group' with 'mb-3' for correct spacing */}
         <Form.Group className="mb-3" controlId="eventName">
           <Form.Label>Event Name</Form.Label>
-          <Form.Control type="text" placeholder="Enter event name" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Form.Control
+            ref={firstFieldRef}
+            type="text"
+            placeholder="Enter event name"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
         </Form.Group>
-        
+
         <Form.Group className="mb-3" controlId="eventType">
           <Form.Label>Event Type</Form.Label>
           <Form.Select value={type} onChange={(e) => setType(e.target.value)}>
@@ -137,54 +218,81 @@ function TripDetailsModal({ trip, show, onClose }) {
 
         <Row>
           <Col md={6}>
-            {/* 'mb-3' is also used here */}
             <Form.Group className="mb-3" controlId="eventStartTime">
               <Form.Label>Start Time</Form.Label>
-              <Form.Control type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+              <Form.Control
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+              />
             </Form.Group>
           </Col>
           <Col md={6}>
             <Form.Group className="mb-3" controlId="eventEndTime">
               <Form.Label>End Time (Optional)</Form.Label>
-              <Form.Control type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              <Form.Control
+                type="datetime-local"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
             </Form.Group>
           </Col>
         </Row>
 
         <Form.Group className="mb-3" controlId="eventLocation">
           <Form.Label>Location (Optional)</Form.Label>
-          <Form.Control type="text" placeholder="e.g., Eiffel Tower" value={location} onChange={(e) => setLocation(e.target.value)} />
+          <Form.Control
+            type="text"
+            placeholder="e.g., Eiffel Tower"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+          />
         </Form.Group>
 
         <Form.Group className="mb-3" controlId="eventDetails">
           <Form.Label>Description / Details (Optional)</Form.Label>
-          <Form.Control as="textarea" rows={3} placeholder="e.g., Confirmation #12345" value={details} onChange={(e) => setDetails(e.target.value)} />
+          <Form.Control
+            as="textarea"
+            rows={3}
+            placeholder="e.g., Confirmation #12345"
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+          />
         </Form.Group>
       </>
     );
   };
+
+  // delete preview or event not implemented here; modal only adds & lists
 
   if (!trip) return null; // Render nothing if no trip
 
   return (
     <Modal show={show} onHide={onClose} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>{trip.name}</Modal.Title>
+        <Modal.Title>{trip.name ?? trip.title ?? 'Trip Details'}</Modal.Title>
       </Modal.Header>
-      
+
       <Modal.Body>
         {/* --- Add to Trip Section --- */}
-        <div className="actions">
-          <h3>Add to Trip</h3>
-          <button id="addBtn" onClick={() => setShowAddSection(!showAddSection)}>
+        <div className="actions d-flex align-items-center justify-content-between mb-3">
+          <h5 className="m-0">Add to Trip</h5>
+          <Button variant="link" onClick={() => { setShowAddSection(v => !v); setMessage(''); }}>
             {showAddSection ? '− Cancel' : '+ Add'}
-          </button>
+          </Button>
         </div>
 
         {/* --- Dynamic Form Section --- */}
         {showAddSection && (
-          <Form className="add-section" style={{display: 'block'}} onSubmit={handleSubmit}>
-            <Form.Select id="addType" value={addType} onChange={(e) => setAddType(e.target.value)} className="mb-2">
+          <Form className="add-section mb-3" onSubmit={handleSubmit}>
+            <Form.Select
+              id="addType"
+              value={addType}
+              onChange={(e) => { setAddType(e.target.value); setMessage(''); }}
+              className="mb-2"
+              aria-label="Choose what to add"
+            >
               <option value="">Choose what to add</option>
               <option value="Event">Event</option>
               <option value="Budget" disabled>Expense (coming soon)</option>
@@ -194,41 +302,48 @@ function TripDetailsModal({ trip, show, onClose }) {
             <div id="fields" className="mt-2">
               {renderFields()}
             </div>
-            
+
             {message && <Alert variant={message.includes('success') ? 'success' : 'danger'} className="mt-3">{message}</Alert>}
-            
-            {/* Only show submit button if a type is selected */}
+
             {addType && (
-              <button className="submit" id="submitBtn" type="submit" disabled={isLoading}>
-                {isLoading ? 'Adding...' : `Submit ${addType}`}
-              </button>
+              <div className="mt-3">
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? 'Adding...' : `Submit ${addType}`}
+                </Button>
+              </div>
             )}
           </Form>
         )}
 
         {/* --- Trip Details Section (Now shows event list) --- */}
         <div className="details">
-          <h3>Itinerary</h3>
+          <h5>Itinerary</h5>
           <ListGroup id="detailList" variant="flush">
             {events.length > 0 ? (
               events.map(event => (
-                <ListGroup.Item key={event.event_id} className="d-flex justify-content-between align-items-start">
+                <ListGroup.Item
+                  key={event.event_id ?? event.id ?? `${event.title}-${Math.random()}`}
+                  className="d-flex justify-content-between align-items-start"
+                >
                   <div>
-                    <div className="fw-bold text-dark">{event.title}</div>
-                    <small className="text-muted">{new Date(event.start_time).toLocaleString()}</small>
+                    <div className="fw-bold text-dark">{event.title ?? event.name ?? 'Untitled Event'}</div>
+                    <small className="text-muted">
+                      {event.start_time ? new Date(event.start_time).toLocaleString() : event.time ?? ''}
+                    </small>
+                    {event.location && <div className="small text-muted mt-1">{event.location}</div>}
+                    {event.details && <div className="small mt-1">{event.details}</div>}
+                    {event.description && !event.details && <div className="small mt-1">{event.description}</div>}
                   </div>
-                  <Badge bg="info">{event.type}</Badge>
+                  <Badge bg="info" pill>{event.type ?? 'Event'}</Badge>
                 </ListGroup.Item>
               ))
             ) : (
-              <p>(No events added yet.)</p>
+              <div className="small text-muted">(No events added yet.)</div>
             )}
           </ListGroup>
         </div>
-        {/* We can add your "see more" link here later */}
-
       </Modal.Body>
-      
+
       <Modal.Footer>
         <Button variant="outline-secondary" onClick={onClose}>
           Close
