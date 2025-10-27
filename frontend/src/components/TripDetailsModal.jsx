@@ -56,7 +56,6 @@ function TripDetailsModal({ trip, show, onClose }) {
         headers: auth ? { Authorization: auth } : undefined
       });
       if (!response.ok) {
-        // non-OK -> try to parse error message if available
         let errText = `Could not fetch events (status ${response.status})`;
         try {
           const errJson = await response.json();
@@ -65,7 +64,6 @@ function TripDetailsModal({ trip, show, onClose }) {
         throw new Error(errText);
       }
       const data = await response.json();
-      // Accept either { events: [...] } or an array directly
       const list = Array.isArray(data) ? data : Array.isArray(data.events) ? data.events : [];
       setEvents(list);
       setMessage('');
@@ -77,25 +75,20 @@ function TripDetailsModal({ trip, show, onClose }) {
   };
 
   // --- UseEffect to Fetch Events ---
-  // Runs when the modal is shown or when the 'trip' prop changes.
   useEffect(() => {
     if (show && getTripId()) {
-      // clear previous message and fetch
       setMessage('');
       fetchEvents(getTripId());
     }
-    // when modal opens, focus first field if add-section visible
+    // focus first input if add section visible
     if (show && showAddSection && firstFieldRef.current) {
       firstFieldRef.current.focus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, trip]);
 
-  // When the add section becomes visible, focus the first input
   useEffect(() => {
-    if (showAddSection && firstFieldRef.current) {
-      firstFieldRef.current.focus();
-    }
+    if (showAddSection && firstFieldRef.current) firstFieldRef.current.focus();
   }, [showAddSection]);
 
   // --- Form Submit Handler ---
@@ -111,6 +104,15 @@ function TripDetailsModal({ trip, show, onClose }) {
       return;
     }
 
+    // Simple guard: if the tripId looks like a client-side preview id (contains letters),
+    // prevent posting and ask user to save the trip on the server first.
+    // Remove or adjust this check if your backend accepts UUIDs or alpha IDs.
+    if (!/^\d+$/.test(String(tripId))) {
+      setMessage('This trip only exists locally. Save it to the server before adding events.');
+      setIsLoading(false);
+      return;
+    }
+
     const raw = localStorage.getItem('token');
     const auth = buildAuthHeader(raw);
 
@@ -121,12 +123,16 @@ function TripDetailsModal({ trip, show, onClose }) {
         setIsLoading(false);
         return;
       }
+
       // optional: validate end >= start if both provided
       if (startTime && endTime && new Date(endTime) < new Date(startTime)) {
         setMessage('End time must be after start time.');
         setIsLoading(false);
         return;
       }
+
+      // diagnostic log (helps confirm the trip id used)
+      console.log('🧭 TripDetailsModal: tripId being used for fetch =', tripId);
 
       // 2. Send ALL data from the form
       try {
@@ -147,7 +153,6 @@ function TripDetailsModal({ trip, show, onClose }) {
         });
 
         if (!response.ok) {
-          // Try parse server message
           let errMsg = `Failed to add event (status ${response.status})`;
           try {
             const errJson = await response.json();
@@ -160,19 +165,15 @@ function TripDetailsModal({ trip, show, onClose }) {
         let created = null;
         try {
           created = await response.json();
-        } catch (e) {
-          // response may be empty; that's fine
-        }
+        } catch (e) {}
 
         setMessage('Event added successfully!');
-        setShowAddSection(false); // hide the form
-        resetForm(); // clear the form fields
+        setShowAddSection(false);
+        resetForm();
 
-        // If server returned the created event, prepend it; otherwise refetch
         if (created && (created.event_id || created.id)) {
           setEvents(prev => [created, ...prev]);
         } else {
-          // fallback: refresh full list
           fetchEvents(tripId);
         }
       } catch (err) {
@@ -263,8 +264,6 @@ function TripDetailsModal({ trip, show, onClose }) {
       </>
     );
   };
-
-  // delete preview or event not implemented here; modal only adds & lists
 
   if (!trip) return null; // Render nothing if no trip
 
