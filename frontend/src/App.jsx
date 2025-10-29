@@ -5,7 +5,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx'; 
-import TripDetailsPage from './pages/TripDetailsPage.jsx';
+
 
 function App() {
   return (
@@ -19,7 +19,7 @@ function App() {
         {/* If a user is logged in, they can access these: */}
         <Route path="/" element={<DashboardPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/trips/:tripId" element={<TripDetailsPage />} />
+
         </Route>
       
       {/* === 404 Catch-all Route === */}

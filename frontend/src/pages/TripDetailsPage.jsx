@@ -140,7 +140,7 @@ export default function TripDetailsPage() {
       };
 
       const res = await fetch('/api/trips', {
-        method: 'POST',
+        method: 'POST', 
         headers,
         body: JSON.stringify(payload)
       });

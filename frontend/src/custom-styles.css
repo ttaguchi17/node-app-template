@@ -1,7 +1,20 @@
 /* src/custom-styles.css */
 
-/* 1. Global Theme Overrides (from your styles) */
-/* By overriding these, React-Bootstrap will use your theme colors */
+/* === 1. Globals & Resets === */
+/* (From index.css) */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%; /* Ensures your app can fill the whole screen */
+}
+
+body {
+  font-family: var(--bs-font-sans-serif);
+  background-color: var(--bs-light);
+}
+
+/* === 2. Root Variables (Theme) === */
+/* (From original custom-styles.css) */
 :root {
   --bs-blue: #4e73df;
   --bs-indigo: #6610f2;
@@ -31,13 +44,7 @@
   --bs-body-bg: #f8f9fc;
 }
 
-/* 2. Global Body Font (from your styles) */
-body {
-  font-family: var(--bs-font-sans-serif);
-  background-color: var(--bs-light);
-}
-
-/* 3. Main Layout Structure (keep this) */
+/* === 3. Main Layout === */
 #wrapper {
   display: flex;
   height: 100%;
@@ -53,24 +60,27 @@ body {
   flex: 1 0 auto;
 }
 
-/* 4. Component-Specific Styles */
+.sticky-footer {
+  padding: 2rem 1.5rem;
+  background-color: var(--bs-white); /* Fixed variable name */
+  flex-shrink: 0;
+  text-align: center;
+}
+
+/* === 4. Core Components === */
 
 /* --- Topbar (Header) --- */
-/* We target the 'topbar' class we added to <Navbar> */
 .topbar {
   height: 4.375rem;
   background-color: var(--bs-white);
   box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15) !important;
   padding: 0 1.5rem;
-  /* The 'shadow' className from React-Bootstrap will handle the shadow */
 }
-/* Utility class for the title text */
 .text-gray-800 {
   color: #5a5c69 !important;
 }
 
 /* --- Sidebar --- */
-/* (This should already be here from the last step) */
 .custom-sidebar {
   width: 18rem !important;
   min-height: 100vh;
@@ -96,9 +106,8 @@ body {
   font-size: 2rem;
   transform: rotate(-15deg);
 }
-
 .custom-sidebar .sidebar-brand-text {
-  font-size: 1.15rem; /* Control the font size here */
+  font-size: 1.15rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05rem;
@@ -139,16 +148,9 @@ body {
 }
 .custom-sidebar.toggled .nav-link i { margin-right: 0; }
 
-/* --- Footer --- */
-.sticky-footer {
-  padding: 2rem 1.5rem;
-  background-color: var(--white);
-  flex-shrink: 0;
-  text-align: center;
-}
+/* === 5. Custom Modal Styles === */
 
-/* --- Details modal --- */
-/* new-trip.css */
+/* --- From new-trip.css (for modal forms) --- */
 .actions {
   display: flex;
   justify-content: space-between;
@@ -156,7 +158,7 @@ body {
   margin-bottom: 20px;
 }
 
-/* We need to adjust this for React Bootstrap's forms */
+/* Overriding React-Bootstrap components inside modals */
 .modal-body button, 
 .modal-body select, 
 .modal-body input {
@@ -180,7 +182,6 @@ body {
 
 .add-section {
   margin-top: 10px;
-  /* 'display: none' will be controlled by React state */
   animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -189,6 +190,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* This is a custom class, not a Bootstrap one */
 .input-group {
   margin-bottom: 10px;
 }
@@ -226,7 +228,7 @@ body {
   border-radius: 10px;
   padding: 10px;
   margin-bottom: 10px;
-  white-space: pre-wrap; /* keeps JSON-ish text readable */
+  white-space: pre-wrap;
 }
 
 .detail-item strong {
