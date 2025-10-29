@@ -13,8 +13,6 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 
 // 3. Your Custom Styles (must be after Bootstrap to override it
 
-// 4. Minimal Global Resets
-import './index.css'
 
 // 3. Your Custom Styles (must be after Bootstrap to override it
 import './custom-styles.css'; 
