@@ -4,24 +4,25 @@ import { Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
-import NotFoundPage from './pages/NotFoundPage.jsx'; 
-
+import NotFoundPage from './pages/NotFoundPage.jsx';
+// 1. ADD THIS IMPORT
+import TripDetailsPage from './pages/TripDetailsPage.jsx';
 
 function App() {
   return (
     <Routes>
       {/* === Public Routes === */}
       <Route path="/login" element={<LoginPage />} />
-      
 
       {/* === Protected Routes === */}
       <Route element={<ProtectedRoute />}>
         {/* If a user is logged in, they can access these: */}
         <Route path="/" element={<DashboardPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        {/* 2. ADD THIS ROUTE */}
+        <Route path="/trips/:tripId" element={<TripDetailsPage />} />
+      </Route>
 
-        </Route>
-      
       {/* === 404 Catch-all Route === */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

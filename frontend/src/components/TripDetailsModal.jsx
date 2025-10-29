@@ -1,5 +1,7 @@
 // src/components/TripDetailsModal.jsx
 import React, { useState, useEffect, useRef } from 'react';
+// 1. IMPORT LINK
+import { Link } from 'react-router-dom';
 import { Modal, Button, Row, Col, Form, Alert, ListGroup, Badge } from 'react-bootstrap';
 
 function TripDetailsModal({ trip, show, onClose }) {
@@ -43,7 +45,7 @@ function TripDetailsModal({ trip, show, onClose }) {
     setEndTime('');
     setLocation('');
     setDetails('');
-    setAddType('');
+    setAddType(''); // Also reset the selected type
   };
 
   // --- Function to Fetch Events ---
@@ -85,10 +87,13 @@ function TripDetailsModal({ trip, show, onClose }) {
       firstFieldRef.current.focus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show, trip]);
+  }, [show, trip]); // Rerun when show or trip changes
 
+  // --- UseEffect to focus input when add section opens ---
   useEffect(() => {
-    if (showAddSection && firstFieldRef.current) firstFieldRef.current.focus();
+    if (showAddSection && firstFieldRef.current) {
+       firstFieldRef.current.focus();
+    }
   }, [showAddSection]);
 
   // --- Form Submit Handler ---
@@ -104,9 +109,7 @@ function TripDetailsModal({ trip, show, onClose }) {
       return;
     }
 
-    // Simple guard: if the tripId looks like a client-side preview id (contains letters),
-    // prevent posting and ask user to save the trip on the server first.
-    // Remove or adjust this check if your backend accepts UUIDs or alpha IDs.
+    // Guard against local IDs
     if (!/^\d+$/.test(String(tripId))) {
       setMessage('This trip only exists locally. Save it to the server before adding events.');
       setIsLoading(false);
@@ -117,24 +120,21 @@ function TripDetailsModal({ trip, show, onClose }) {
     const auth = buildAuthHeader(raw);
 
     if (addType === 'Event') {
-      // 1. Validation
+      // Validation
       if (!title || !startTime) {
         setMessage('Event Name and Start Time are required.');
         setIsLoading(false);
         return;
       }
-
-      // optional: validate end >= start if both provided
       if (startTime && endTime && new Date(endTime) < new Date(startTime)) {
         setMessage('End time must be after start time.');
         setIsLoading(false);
         return;
       }
 
-      // diagnostic log (helps confirm the trip id used)
       console.log('🧭 TripDetailsModal: tripId being used for fetch =', tripId);
 
-      // 2. Send ALL data from the form
+      // Send data
       try {
         const response = await fetch(`/api/trips/${encodeURIComponent(tripId)}/events`, {
           method: 'POST',
@@ -161,7 +161,6 @@ function TripDetailsModal({ trip, show, onClose }) {
           throw new Error(errMsg);
         }
 
-        // Success -> parse returned event if available
         let created = null;
         try {
           created = await response.json();
@@ -171,6 +170,7 @@ function TripDetailsModal({ trip, show, onClose }) {
         setShowAddSection(false);
         resetForm();
 
+        // Update UI instantly if possible, otherwise refetch
         if (created && (created.event_id || created.id)) {
           setEvents(prev => [created, ...prev]);
         } else {
@@ -197,7 +197,7 @@ function TripDetailsModal({ trip, show, onClose }) {
         <Form.Group className="mb-3" controlId="eventName">
           <Form.Label>Event Name</Form.Label>
           <Form.Control
-            ref={firstFieldRef}
+            ref={firstFieldRef} // Assign ref to the first field
             type="text"
             placeholder="Enter event name"
             value={title}
@@ -267,6 +267,9 @@ function TripDetailsModal({ trip, show, onClose }) {
 
   if (!trip) return null; // Render nothing if no trip
 
+  // 2. GET THE TRIP ID for the link
+  const tripId = getTripId();
+
   return (
     <Modal show={show} onHide={onClose} size="lg" centered>
       <Modal.Header closeButton>
@@ -314,14 +317,14 @@ function TripDetailsModal({ trip, show, onClose }) {
           </Form>
         )}
 
-        {/* --- Trip Details Section (Now shows event list) --- */}
+        {/* --- Trip Details Section (Itinerary List) --- */}
         <div className="details">
           <h5>Itinerary</h5>
           <ListGroup id="detailList" variant="flush">
             {events.length > 0 ? (
               events.map(event => (
                 <ListGroup.Item
-                  key={event.event_id ?? event.id ?? `${event.title}-${Math.random()}`}
+                  key={event.event_id ?? event.id ?? `${event.title}-${Math.random()}`} // Use better key
                   className="d-flex justify-content-between align-items-start"
                 >
                   <div>
@@ -331,6 +334,7 @@ function TripDetailsModal({ trip, show, onClose }) {
                     </small>
                     {event.location && <div className="small text-muted mt-1">{event.location}</div>}
                     {event.details && <div className="small mt-1">{event.details}</div>}
+                    {/* Fallback for description if details is empty */}
                     {event.description && !event.details && <div className="small mt-1">{event.description}</div>}
                   </div>
                   <Badge bg="info" pill>{event.type ?? 'Event'}</Badge>
@@ -344,6 +348,16 @@ function TripDetailsModal({ trip, show, onClose }) {
       </Modal.Body>
 
       <Modal.Footer>
+        {/* 3. ADD THE LINK TO THE FULL PAGE */}
+        <Link
+          to={`/trips/${tripId}`}
+          className="btn btn-primary me-auto" // 'me-auto' pushes it to the left
+          onClick={onClose} // Also close the modal when we navigate
+        >
+          View Full Page...
+        </Link>
+
+        {/* 4. KEEP THE ORIGINAL CLOSE BUTTON */}
         <Button variant="outline-secondary" onClick={onClose}>
           Close
         </Button>

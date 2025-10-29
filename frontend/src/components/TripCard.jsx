@@ -1,12 +1,21 @@
 // src/components/TripCard.jsx
 import React from 'react';
 import { Card, Badge, Col, Button } from 'react-bootstrap';
-// We no longer import useNavigate. This is the main change.
+import { Link } from 'react-router-dom'; // 1. We need this for navigation
 
-// Step 1: Accept the 'onCardClick' prop from TripList
+// We accept the 'onCardClick' prop from TripList (which gets it from DashboardPage)
 function TripCard({ trip, onCardClick }) {
   
-  // Helper to format dates
+  // 2. Get the trip ID for the <Link>
+  const tripId = trip.trip_id ?? trip.id;
+
+  // 3. This is CRITICAL. It stops the "More..." button
+  //    from also triggering the card's onClick handler.
+  const handleButtonStop = (e) => {
+    e.stopPropagation();
+  };
+
+  // Helper to format dates (from your file)
   const formatDate = (dateString) => {
     if (!dateString) return '';
     return dateString.split('T')[0];
@@ -15,20 +24,13 @@ function TripCard({ trip, onCardClick }) {
     ? `${formatDate(trip.start_date)} - ${formatDate(trip.end_date)}`
     : 'No dates set';
   
-  // Step 2: This handler now calls the 'onCardClick' prop,
-  // passing the 'trip' object back up to the DashboardPage.
-  const handleCardClick = (e) => {
-    e.stopPropagation(); // Prevents multiple clicks if needed
-    onCardClick(trip);
-  };
-
   return (
     <Col xl={4} md={6} className="mb-4">
-      {/* Step 3: Make the entire Card clickable */}
+      {/* 4. This onClick will open the modal */}
       <Card 
         className="h-100 shadow-sm" 
         style={{ cursor: 'pointer' }} 
-        onClick={handleCardClick}
+        onClick={() => onCardClick(trip)}
       >
         <Card.Body>
           <div className="d-flex justify-content-between">
@@ -42,10 +44,16 @@ function TripCard({ trip, onCardClick }) {
           </div>
         </Card.Body>
         <Card.Footer className="bg-white border-top-0 d-flex justify-content-end">
-          {/* Step 4: The button does the exact same thing */}
-          <Button variant="outline-primary" size="sm" onClick={handleCardClick}>
-            View Details
-          </Button>
+          
+          {/* 5. This <Link> navigates to the full page */}
+          <Link
+            to={`/trips/${tripId}`}
+            className="btn btn-outline-primary btn-sm"
+            onClick={handleButtonStop} // Use our helper here
+          >
+            More...
+          </Link>
+
         </Card.Footer>
       </Card>
     </Col>

@@ -1,11 +1,20 @@
 // src/pages/TripDetailsPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Alert, ListGroup, Badge } from 'react-bootstrap'; // Import components needed for display
 import Layout from '../components/Layout.jsx';
-import TripDetailsModal from '../components/TripDetailsModal.jsx';
+// We NO LONGER import TripDetailsModal here
 
 const PREVIEWS_KEY = 'tripPreviews';
 
+// Helper: build auth header
+const buildAuthHeader = (raw) => {
+  if (!raw) return undefined;
+  if (raw.toLowerCase().startsWith('bearer ')) return raw;
+  return `Bearer ${raw}`;
+};
+
+// Helper: fetch local preview data
 function fetchTripPreviewFromLocal(tripId) {
   try {
     const raw = localStorage.getItem(PREVIEWS_KEY);
@@ -24,222 +33,264 @@ export default function TripDetailsPage() {
   const navigate = useNavigate();
 
   const [trip, setTrip] = useState(null);
+  const [events, setEvents] = useState([]); // State to hold events
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
-  const [showModal, setShowModal] = useState(false); // show modal only once trip is ready
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
+  // --- Data Loading Effect ---
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
       setFetchError(false);
+      setEvents([]); // Reset events on load
 
-      // Try server endpoint for trip (and events if returned)
+      // Try server endpoint for trip
       try {
-        const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}`);
+        const token = localStorage.getItem('token');
+        const auth = buildAuthHeader(token);
+        const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}`, {
+          headers: auth ? { Authorization: auth } : undefined
+        });
+
         if (!res.ok) {
-          // treat non-OK as failure and fall back to local
-          throw new Error(`server returned ${res.status}`);
+           if (res.status === 401 || res.status === 403) { // Handle auth errors specifically
+             localStorage.removeItem('token');
+             navigate('/login'); // Redirect to login if unauthorized
+             return;
+           }
+           throw new Error(`Server returned ${res.status}`);
         }
+
         const json = await res.json();
         if (cancelled) return;
 
-        // server may return { trip, events } or trip object
         const serverTrip = json.trip || json;
-        // normalize to contain id and trip_id for downstream code
         const normalized = {
           id: serverTrip.id ?? serverTrip.trip_id ?? serverTrip.tripId ?? tripId,
           trip_id: serverTrip.trip_id ?? serverTrip.id ?? serverTrip.tripId ?? tripId,
           title: serverTrip.title ?? serverTrip.name ?? serverTrip.trip_name ?? '',
-          dates: serverTrip.dates ?? serverTrip.date_range ?? '',
+          dates: serverTrip.dates ?? serverTrip.date_range ?? serverTrip.start_date ?? '', // Use start_date as fallback
           notes: serverTrip.notes ?? serverTrip.description ?? ''
         };
         console.log('📘 TripDetailsPage: loaded trip from server:', normalized);
         setTrip(normalized);
-        // server trip is authoritative — show modal
-        setShowModal(true);
+
+        // --- Fetch Events Separately ---
+        // Now that we have the trip, fetch its events
+        try {
+            const eventsRes = await fetch(`/api/trips/${encodeURIComponent(normalized.trip_id)}/events`, {
+                headers: auth ? { Authorization: auth } : undefined
+            });
+            if (!eventsRes.ok) {
+                throw new Error(`Could not fetch events (status ${eventsRes.status})`);
+            }
+            const eventsData = await eventsRes.json();
+            const eventList = Array.isArray(eventsData) ? eventsData : Array.isArray(eventsData.events) ? eventsData.events : [];
+            if (!cancelled) setEvents(eventList);
+        } catch(eventErr) {
+            console.warn("Could not fetch events:", eventErr);
+            setFetchError(true); // Show an error if events fail
+        }
+        // --- End Fetch Events ---
+
         setLoading(false);
-        return;
+        return; // Success!
+
       } catch (err) {
         console.info('Could not fetch trip from API, falling back to localPreview', err);
-        setFetchError(true);
+        setFetchError(true); // Indicate general fetch error
       }
 
-      // Fallback to local preview
+      // Fallback to local preview (if API failed)
       const preview = fetchTripPreviewFromLocal(tripId);
-      if (preview) {
-        if (!cancelled) {
-          const local = {
-            id: preview.id,
-            trip_id: preview.id,
-            title: preview.title || preview.name || 'Untitled Trip',
-            dates: preview.dates || '',
-            notes: preview.notes || ''
-          };
-          console.log('📘 TripDetailsPage: using local preview:', local);
-          setTrip(local);
-          // Do NOT auto-open modal for local previews (so user can choose to save first)
-          setShowModal(false);
-          setLoading(false);
-        }
-      } else {
-        if (!cancelled) {
-          setTrip(null);
-          setLoading(false);
-        }
+      if (preview && !cancelled) {
+        const local = {
+          id: preview.id,
+          trip_id: preview.id, // Treat local preview ID as trip_id for consistency
+          title: preview.title || preview.name || 'Untitled Trip',
+          dates: preview.dates || '',
+          notes: preview.notes || ''
+        };
+        console.log('📘 TripDetailsPage: using local preview:', local);
+        setTrip(local);
+        // Local previews don't have events stored
+        setEvents([]);
+      } else if (!cancelled) {
+        setTrip(null); // No trip found locally either
       }
+
+      if (!cancelled) setLoading(false);
     }
 
     load();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [tripId]);
+    return () => { cancelled = true; };
+  }, [tripId, navigate]); // Add navigate to dependency array
 
-  // Small helper to check if trip id is a server id (numeric)
+  // Helper to check if trip id looks like a server id
   function tripLooksLikeServerId(t) {
     if (!t) return false;
     const id = String(t.trip_id ?? t.id ?? '');
-    // Adjust this regex if your backend uses UUIDs (hex + dashes)
     return /^\d+$/.test(id);
   }
 
-  // Close modal: go back or to dashboard
-  function close() {
+  // Go back or to dashboard
+  function goBack() {
     if (window.history.length > 1) navigate(-1);
     else navigate('/dashboard');
   }
 
-  // onClose handler passed to modal
-  function handleModalClose() {
-    setShowModal(false);
-    // keep consistent navigation behavior
-    close();
-  }
-
-  // Create the trip on the server using preview data, then open modal
+  // --- Create Trip on Server (Same logic as before) ---
   async function createTripOnServer() {
-    if (!trip) return;
-    setCreateError('');
-    setIsCreating(true);
-
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-
-      // Send minimal payload; adjust fields to match your API
-      const payload = {
-        title: trip.title,
-        dates: trip.dates,
-        notes: trip.notes
-      };
-
-      const res = await fetch('/api/trips', {
-        method: 'POST', 
-        headers,
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        let msg = `Create failed (status ${res.status})`;
-        try {
-          const body = await res.json();
-          if (body?.message) msg = body.message;
-        } catch (e) {}
-        throw new Error(msg);
-      }
-
-      const created = await res.json();
-      // server may return { trip } or the trip object directly
-      const serverTrip = created.trip || created;
-      const normalized = {
-        id: serverTrip.id ?? serverTrip.trip_id ?? serverTrip.tripId ?? String(serverTrip.id ?? serverTrip.trip_id ?? trip.id),
-        trip_id: serverTrip.trip_id ?? serverTrip.id ?? serverTrip.tripId ?? String(serverTrip.id ?? serverTrip.trip_id ?? trip.id),
-        title: serverTrip.title ?? serverTrip.name ?? trip.title,
-        dates: serverTrip.dates ?? trip.dates,
-        notes: serverTrip.notes ?? serverTrip.description ?? trip.notes
-      };
-
-      // Update local preview store: replace preview id with server id if present
-      try {
-        const raw = localStorage.getItem(PREVIEWS_KEY);
-        if (raw) {
-          const arr = JSON.parse(raw);
-          const idx = arr.findIndex(p => p.id === trip.id);
-          if (idx >= 0) {
-            arr.splice(idx, 1); // remove preview
-            localStorage.setItem(PREVIEWS_KEY, JSON.stringify(arr));
-          }
-        }
-      } catch (e) {
-        console.warn('Could not update previews localStorage', e);
-      }
-
-      setTrip(normalized);
-      setShowModal(true);
-      setIsCreating(false);
+      if (!trip) return;
       setCreateError('');
-      console.log('📘 TripDetailsPage: created trip on server:', normalized);
-    } catch (err) {
-      console.error('createTripOnServer error', err);
-      setCreateError(err.message || 'Failed to create trip on server.');
-      setIsCreating(false);
-    }
+      setIsCreating(true);
+      try {
+          const token = localStorage.getItem('token');
+          const auth = buildAuthHeader(token);
+          const headers = {
+              'Content-Type': 'application/json',
+              ...(auth ? { Authorization: auth } : {})
+          };
+          const payload = {
+              name: trip.title,
+              start_date: trip.dates,
+              // end_date: ... // Add if needed
+          };
+          const res = await fetch('/api/trips', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+              let msg = `Create failed (status ${res.status})`;
+              try {
+                  const body = await res.json();
+                  if (body?.message) msg = body.message;
+              } catch (e) {}
+              throw new Error(msg);
+          }
+          const created = await res.json();
+          const serverTrip = created.trip || created;
+          const normalized = {
+              id: serverTrip.id ?? serverTrip.trip_id ?? String(serverTrip.id ?? serverTrip.trip_id),
+              trip_id: serverTrip.trip_id ?? serverTrip.id ?? String(serverTrip.id ?? serverTrip.trip_id),
+              title: serverTrip.title ?? serverTrip.name ?? trip.title,
+              dates: serverTrip.dates ?? serverTrip.start_date ?? trip.dates,
+              notes: serverTrip.notes ?? serverTrip.description ?? trip.notes
+          };
+          // Update local storage (remove preview)
+          try {
+              const raw = localStorage.getItem(PREVIEWS_KEY);
+              if (raw) {
+                  const arr = JSON.parse(raw);
+                  const updatedArr = arr.filter(p => p.id !== trip.id); // Filter out old preview
+                  localStorage.setItem(PREVIEWS_KEY, JSON.stringify(updatedArr));
+              }
+          } catch (e) { console.warn('Could not update previews localStorage', e); }
+
+          setTrip(normalized); // Update state with server trip data
+          setIsCreating(false);
+          setCreateError('');
+          console.log('📘 TripDetailsPage: created trip on server:', normalized);
+          // Now fetch events for the newly created trip
+          await fetchEvents(normalized.trip_id);
+
+      } catch (err) {
+          console.error('createTripOnServer error', err);
+          setCreateError(err.message || 'Failed to create trip on server.');
+          setIsCreating(false);
+      }
   }
 
-  // Render
+
+  // --- Render Logic ---
   return (
     <Layout>
-      {/* Optionally show a small loader while we fetch the trip metadata */}
+      {/* 1. Loading State */}
       {loading && (
-        <div className="p-3">
-          <div className="small text-muted">Loading trip...</div>
+        <div className="container-fluid p-3">
+          <p className="text-muted">Loading trip...</p>
         </div>
       )}
 
-      {/* If trip failed to load and no preview exists, show an error before opening modal */}
+      {/* 2. Error State (after loading, if no trip found) */}
       {!loading && !trip && (
-        <div className="p-3">
-          <div className="alert alert-warning">Could not find the trip details.</div>
+        <div className="container-fluid p-3">
+          <Alert variant="warning">Could not find the trip details.</Alert>
+          <button className="btn btn-secondary" onClick={goBack}>Go Back</button>
         </div>
       )}
 
-      {/* If we have a local preview (non-server id), prompt user to save it */}
-      {!loading && trip && !tripLooksLikeServerId(trip) && (
-        <div className="p-3">
-          <div className="mb-3">
-            <h5>{trip.title || 'Unsaved Trip'}</h5>
-            <div className="small text-muted mb-2">This trip exists only in your browser (preview).</div>
+      {/* 3. Trip Loaded - Display Content */}
+      {!loading && trip && (
+        <div className="container-fluid p-3">
 
-            {createError && <div className="alert alert-danger">{createError}</div>}
+          {/* 3a. Handle Local Preview */}
+          {!tripLooksLikeServerId(trip) && (
+            <div className="mb-4 p-3 border rounded bg-light">
+              <h5>{trip.title || 'Unsaved Trip'}</h5>
+              <p className="small text-muted mb-2">This trip exists only in your browser (preview).</p>
+              {createError && <Alert variant="danger">{createError}</Alert>}
+              <button className="btn btn-primary me-2" onClick={createTripOnServer} disabled={isCreating}>
+                {isCreating ? 'Saving...' : 'Save Trip to Server'}
+              </button>
+              <button className="btn btn-outline-secondary" onClick={goBack}>
+                Cancel
+              </button>
+            </div>
+          )}
 
-            <button className="btn btn-primary me-2" onClick={createTripOnServer} disabled={isCreating}>
-              {isCreating ? 'Saving...' : 'Save Trip to Server'}
-            </button>
-            <button className="btn btn-outline-secondary" onClick={() => { close(); }}>
-              Cancel
-            </button>
+          {/* 3b. Display Trip Details (for both local and server trips) */}
+          <div className="mb-4">
+            <h2>{trip.title}</h2>
+            {trip.dates && <p className="text-muted">{trip.dates}</p>}
+            {trip.notes && <p>{trip.notes}</p>}
+          </div>
+
+          {/* 3c. Display Itinerary (Events List) */}
+          <div className="details mt-4">
+            <h5>Itinerary</h5>
+             {fetchError && <Alert variant="danger">Could not load itinerary details.</Alert>}
+            <ListGroup id="detailList" variant="flush">
+              {events.length > 0 ? (
+                events.map(event => (
+                  <ListGroup.Item
+                    key={event.event_id ?? event.id ?? `${event.title}-${Math.random()}`}
+                    className="d-flex justify-content-between align-items-start px-0" // px-0 for flush look
+                  >
+                    <div>
+                      <div className="fw-bold text-dark">{event.title ?? event.name ?? 'Untitled Event'}</div>
+                      <small className="text-muted">
+                        {event.start_time ? new Date(event.start_time).toLocaleString() : event.time ?? ''}
+                      </small>
+                      {event.location && <div className="small text-muted mt-1">{event.location}</div>}
+                      {event.details && <div className="small mt-1">{event.details}</div>}
+                      {event.description && !event.details && <div className="small mt-1">{event.description}</div>}
+                    </div>
+                    <Badge bg="info" pill>{event.type ?? 'Event'}</Badge>
+                  </ListGroup.Item>
+                ))
+              ) : (
+                 // Only show 'no events' if not loading and not a local preview before saving
+                !loading && tripLooksLikeServerId(trip) && <div className="small text-muted">(No events added yet.)</div>
+              )}
+            </ListGroup>
+          </div>
+
+          {/* Back Button */}
+          <div className='mt-4'>
+             <button className="btn btn-secondary" onClick={goBack}>Go Back</button>
           </div>
         </div>
       )}
 
-      {/* If trip is a server trip (or we've just created it), show the modal */}
-      {trip && tripLooksLikeServerId(trip) && showModal && (
-        <TripDetailsModal
-          trip={{
-            ...trip,
-            trip_id: trip.trip_id ?? trip.id ?? tripId,
-            id: trip.id ?? trip.trip_id ?? tripId
-          }}
-          show={showModal}
-          onClose={handleModalClose}
-        />
-      )}
+      {/* NO LONGER RENDERING <TripDetailsModal /> HERE */}
+
     </Layout>
   );
 }

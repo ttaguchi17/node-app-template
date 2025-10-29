@@ -138,6 +138,41 @@ app.get('/api/trips', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/api/trips/:tripId', authenticateToken, async (req, res) => {
+    const { tripId } = req.params;
+    const userEmail = req.user.email;
+
+    try {
+        const connection = await createConnection();
+
+        // This query securely joins the trip, membership, and user tables
+        // to ensure the logged-in user is a member of the requested trip.
+        const [rows] = await connection.execute(
+            `SELECT t.* FROM trip t
+              JOIN trip_membership tm ON t.trip_id = tm.trip_id
+              JOIN user u ON tm.user_id = u.user_id
+              WHERE u.email = ? AND t.trip_id = ?`,
+            [userEmail, tripId]
+        );
+
+        await connection.end();
+
+        if (rows.length === 0) {
+            // If no trip is found, it's either because it doesn't exist
+            // or the user doesn't have permission to see it.
+            return res.status(404).json({ message: 'Trip not found or access denied.' });
+        }
+
+        // Send the single trip object
+        res.status(200).json(rows[0]);
+
+    } catch (error) {
+        console.error('Error fetching single trip:', error);
+        res.status(500).json({ message: 'Error retrieving trip.' });
+    }
+});
+// === END OF NEW ROUTE ===
+
 // Route: Create a new Trip
 app.post('/api/trips', authenticateToken, async (req, res) => {
   const { name, start_date, end_date } = req.body;
