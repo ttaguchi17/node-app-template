@@ -1,59 +1,94 @@
 // src/components/TripCard.jsx
 import React from 'react';
-import { Card, Badge, Col, Button } from 'react-bootstrap';
-import { Link } from 'react-router-dom'; // 1. We need this for navigation
+import { Card, Badge, Col } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 
-// We accept the 'onCardClick' prop from TripList (which gets it from DashboardPage)
+// TripCard renders a single trip in the dashboard grid.
+// It accepts a `trip` object and an `onCardClick` callback (used to open modal).
 function TripCard({ trip, onCardClick }) {
-  
-  // 2. Get the trip ID for the <Link>
-  const tripId = trip.trip_id ?? trip.id;
+  // robust id getter
+  const tripId = trip.trip_id ?? trip.id ?? trip.tripId;
 
-  // 3. This is CRITICAL. It stops the "More..." button
-  //    from also triggering the card's onClick handler.
+  // prevent the More... button from also triggering the card click
   const handleButtonStop = (e) => {
     e.stopPropagation();
   };
 
-  // Helper to format dates (from your file)
+  // Title fallback: prefer name, then title
+  const title = trip.name ?? trip.title ?? trip.trip_name ?? 'Untitled Trip';
+
+  // Format a date string (accepts full ISO datetime or plain date)
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    return dateString.split('T')[0];
+    try {
+      // If it looks like an ISO datetime, use Date to localize
+      if (String(dateString).includes('T') || String(dateString).match(/^\d{4}-\d{2}-\d{2}/)) {
+        const d = new Date(dateString);
+        if (!isNaN(d.getTime())) return d.toLocaleDateString();
+      }
+    } catch (e) {
+      // ignore and fall through
+    }
+    // fallback: try simple split on T, or return raw
+    return String(dateString).split('T')[0] || String(dateString);
   };
-  const dates = formatDate(trip.start_date) && formatDate(trip.end_date)
-    ? `${formatDate(trip.start_date)} - ${formatDate(trip.end_date)}`
-    : 'No dates set';
-  
+
+  // Build the displayed date range. Try many possible fields for compatibility.
+  const start = trip.start_date ?? trip.startDate ?? (typeof trip.dates === 'string' ? trip.dates.split(/[-–—]/)[0]?.trim() : null);
+  const end = trip.end_date ?? trip.endDate ?? (typeof trip.dates === 'string' ? trip.dates.split(/[-–—]/)[1]?.trim() : null);
+
+  const dates =
+    start && end
+      ? `${formatDate(start)} - ${formatDate(end)}`
+      : (start ? formatDate(start) : (trip.dates ? String(trip.dates) : 'No dates set'));
+
+  // Location fallback: try common property names
+  const location =
+    trip.location ??
+    trip.destination ??
+    trip.place ??
+    trip.where ??
+    trip.location_name ??
+    trip.city ??
+    '';
+
   return (
     <Col xl={4} md={6} className="mb-4">
-      {/* 4. This onClick will open the modal */}
-      <Card 
-        className="h-100 shadow-sm" 
-        style={{ cursor: 'pointer' }} 
-        onClick={() => onCardClick(trip)}
+      <Card
+        className="h-100 shadow-sm"
+        style={{ cursor: 'pointer' }}
+        onClick={() => onCardClick && onCardClick(trip)}
       >
         <Card.Body>
           <div className="d-flex justify-content-between">
-            <div>
-              <h5 className="card-title text-gray-800">{trip.name}</h5>
-              <p className="card-text small text-muted">
+            <div style={{ minWidth: 0 }}>
+              <h5 className="card-title text-gray-800" style={{ marginBottom: 6 }}>{title}</h5>
+
+              <p className="card-text small text-muted" style={{ marginBottom: 4 }}>
                 {dates}
               </p>
+
+              {/* NEW: display location if available */}
+              <p className="card-text small text-muted" style={{ marginBottom: 0 }}>
+                <strong style={{ fontWeight: 600, color: '#333', marginRight: 8 }}>Location</strong>
+                <span style={{ fontWeight: 400, color: '#6c757d' }}>
+                  {location || '—'}
+                </span>
+              </p>
             </div>
+
             <Badge bg="primary" className="align-self-start">Planned</Badge>
           </div>
         </Card.Body>
+
         <Card.Footer className="bg-white border-top-0 d-flex justify-content-end">
-          
-          {/* 5. This <Link> navigates to the full page */}
           <Link
-            to={`/trips/${tripId}`}
+            to={`/trips/${encodeURIComponent(tripId)}`}
             className="btn btn-outline-primary btn-sm"
-            onClick={handleButtonStop} // Use our helper here
+            onClick={handleButtonStop}
           >
             More...
           </Link>
-
         </Card.Footer>
       </Card>
     </Col>
