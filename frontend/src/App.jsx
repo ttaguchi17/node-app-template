@@ -1,12 +1,12 @@
 // src/App.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import LoginPage from './pages/LoginPage.jsx';
-import DashboardPage from './pages/DashboardPage.jsx';
+import LoginPage from './pages/LoginPage/LoginPage.jsx';
+import DashboardPage from './pages/DashboardPage/DashboardPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 // 1. ADD THIS IMPORT
-import TripDetailsPage from './pages/TripDetailsPage.jsx';
+import TripDetailsPage from './pages/TripDetailsPage/TripDetailsPage.jsx';
 
 function App() {
   return (

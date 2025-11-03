@@ -51,7 +51,7 @@ function NewTripModal({ show, onClose, onTripCreated }) {
           name: tripName,
           start_date: startDate || null,
           end_date: endDate || null,
-          location: location || null
+          location_input: location || null // Changed from location to location_input to match backend
         })
       });
 

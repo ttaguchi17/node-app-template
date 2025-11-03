@@ -8,6 +8,8 @@ import App from './App.jsx'
 // 1. Base Bootstrap (must be first)
 import 'bootstrap/dist/css/bootstrap.min.css'; 
 
+import 'leaflet/dist/leaflet.css';
+
 // 2. Icons
 import '@fortawesome/fontawesome-free/css/all.min.css';
 

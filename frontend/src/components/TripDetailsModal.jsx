@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 // 1. IMPORT LINK
 import { Link } from 'react-router-dom';
-import { Modal, Button, Row, Col, Form, Alert, ListGroup, Badge } from 'react-bootstrap';
+import { Modal, Button, Row, Col, Form, Alert, ListGroup, Badge, CloseButton } from 'react-bootstrap';
 
-function TripDetailsModal({ trip, show, onClose }) {
+function TripDetailsModal({ trip, show, onClose, deleteEvent }) {
   // --- State for the "Add" Form ---
   const [showAddSection, setShowAddSection] = useState(false);
   const [addType, setAddType] = useState('');
@@ -120,9 +120,9 @@ function TripDetailsModal({ trip, show, onClose }) {
     const auth = buildAuthHeader(raw);
 
     if (addType === 'Event') {
-      // Validation
-      if (!title || !startTime) {
-        setMessage('Event Name and Start Time are required.');
+      // Validation: only title is required; times are optional
+      if (!title) {
+        setMessage('Event Name is required.');
         setIsLoading(false);
         return;
       }
@@ -148,7 +148,7 @@ function TripDetailsModal({ trip, show, onClose }) {
             type: type,
             start_time: startTime,
             end_time: endTime || null,
-            location: location || null
+            location_input: location || null
           })
         });
 
@@ -225,7 +225,6 @@ function TripDetailsModal({ trip, show, onClose }) {
                 type="datetime-local"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                required
               />
             </Form.Group>
           </Col>
@@ -320,30 +319,41 @@ function TripDetailsModal({ trip, show, onClose }) {
         {/* --- Trip Details Section (Itinerary List) --- */}
         <div className="details">
           <h5>Itinerary</h5>
-          <ListGroup id="detailList" variant="flush">
-            {events.length > 0 ? (
-              events.map(event => (
-                <ListGroup.Item
-                  key={event.event_id ?? event.id ?? `${event.title}-${Math.random()}`} // Use better key
-                  className="d-flex justify-content-between align-items-start"
-                >
-                  <div>
-                    <div className="fw-bold text-dark">{event.title ?? event.name ?? 'Untitled Event'}</div>
-                    <small className="text-muted">
-                      {event.start_time ? new Date(event.start_time).toLocaleString() : event.time ?? ''}
-                    </small>
-                    {event.location && <div className="small text-muted mt-1">{event.location}</div>}
-                    {event.details && <div className="small mt-1">{event.details}</div>}
-                    {/* Fallback for description if details is empty */}
-                    {event.description && !event.details && <div className="small mt-1">{event.description}</div>}
-                  </div>
-                  <Badge bg="info" pill>{event.type ?? 'Event'}</Badge>
-                </ListGroup.Item>
-              ))
-            ) : (
-              <div className="small text-muted">(No events added yet.)</div>
-            )}
-          </ListGroup>
+<ListGroup id="detailList" variant="flush">
+      {events.length > 0 ? (
+    events.map(event => (
+      <ListGroup.Item
+        key={event.event_id ?? event.id ?? `${event.title}-${Math.random()}`}
+        className="d-flex justify-content-between align-items-start"
+      >
+        {/* Event Details (Title, Time, Location) */}
+        <div>
+          <div className="fw-bold text-dark">{event.title ?? event.name ?? 'Untitled Event'}</div>
+          <small className="text-muted">
+            {event.start_time ? new Date(event.start_time).toLocaleString() : event.time ?? ''}
+          </small>
+          {event.location && <div className="small text-muted mt-1">{event.location}</div>}
+          {event.details && <div className="small text-muted mt-1">{event.details}</div>}
+          {event.description && !event.details && <div className="small text-muted mt-1">{event.description}</div>}
+        </div>
+        
+        {/* Badge and Delete Button */}
+        <div className="d-flex align-items-center">
+          <Badge bg="info" pill className="me-3">{event.type ?? 'Event'}</Badge>
+          {deleteEvent && (
+            <CloseButton onClick={async () => {
+              if (typeof deleteEvent !== 'function') return;
+              const ok = await deleteEvent(event.event_id);
+              if (ok) fetchEvents(getTripId());
+            }} />
+          )}
+                    </div>
+                  </ListGroup.Item>
+                ))
+              ) : (
+                <div className="small text-muted">(No events added yet.)</div>
+              )}
+            </ListGroup>
         </div>
       </Modal.Body>
 

@@ -1,17 +1,21 @@
 // src/components/TripCard.jsx
 import React from 'react';
-import { Card, Badge, Col } from 'react-bootstrap';
+import { Card, Badge, Col, Button, CloseButton } from 'react-bootstrap'; 
 import { Link } from 'react-router-dom';
 
 // TripCard renders a single trip in the dashboard grid.
 // It accepts a `trip` object and an `onCardClick` callback (used to open modal).
-function TripCard({ trip, onCardClick }) {
-  // robust id getter
+function TripCard({ trip, onCardClick, onDeleteClick }) {
+
   const tripId = trip.trip_id ?? trip.id ?? trip.tripId;
 
-  // prevent the More... button from also triggering the card click
   const handleButtonStop = (e) => {
     e.stopPropagation();
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation(); // Stop the card's onCardClick from firing
+    onDeleteClick(tripId);
   };
 
   // Title fallback: prefer name, then title
@@ -44,6 +48,10 @@ function TripCard({ trip, onCardClick }) {
 
   // Location fallback: try common property names
   const location =
+    // new backend fields (preferred)
+    trip.location_display_name ??
+    trip.location_input ??
+    // legacy/common fields
     trip.location ??
     trip.destination ??
     trip.place ??
@@ -89,6 +97,11 @@ function TripCard({ trip, onCardClick }) {
           >
             More...
           </Link>
+
+          <CloseButton 
+            title="Delete trip" 
+            onClick={handleDelete} 
+          />
         </Card.Footer>
       </Card>
     </Col>
