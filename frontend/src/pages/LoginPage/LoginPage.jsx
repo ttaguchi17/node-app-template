@@ -26,10 +26,18 @@ export default function LoginPage() {
 
   // 3. The render is now clean and simple
   return (
-    <Container className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
-      <Card style={{ width: '100%', maxWidth: '400px' }}>
-        
-        <Nav variant="tabs" defaultActiveKey="login" onSelect={(selectedKey) => switchTab(selectedKey)} activeKey={activeTab}>
+    <div className="login-page">
+      <div className="login-container">
+        <div className="login-header">
+          <h1>Welcome to Travel App</h1>
+          <p>Please sign in to continue your journey</p>
+        </div>
+
+        <Nav variant="pills" 
+            defaultActiveKey="login" 
+            onSelect={(selectedKey) => switchTab(selectedKey)} 
+            activeKey={activeTab}
+            className="auth-tabs mb-4">
           <Nav.Item>
             <Nav.Link eventKey="login">Log In</Nav.Link>
           </Nav.Item>
@@ -38,11 +46,9 @@ export default function LoginPage() {
           </Nav.Item>
         </Nav>
         
-        <Card.Body className="p-4">
-          
-          {/* Messages are handled by the page */}
-          {error && <Alert variant="danger">{error}</Alert>}
-          {message && <Alert variant="success">{message}</Alert>}
+        <div className="auth-content">
+          {error && <Alert variant="danger" className="animate-alert">{error}</Alert>}
+          {message && <Alert variant="success" className="animate-alert">{message}</Alert>}
           
           {/* 4. Conditionally render the correct form */}
           {activeTab === 'login' ? (
@@ -64,8 +70,8 @@ export default function LoginPage() {
               isLoading={isLoading}
             />
           )}
-        </Card.Body>
-      </Card>
-    </Container>
+        </div>
+      </div>
+    </div>
   );
 }

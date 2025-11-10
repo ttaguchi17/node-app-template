@@ -5,6 +5,7 @@ import Layout from '../../components/Layout.jsx';
 import NewTripModal from './components/NewTripModal.jsx';
 import TripList from './components/TripList.jsx';
 import TripDetailsModal from '../../components/TripDetailsModal.jsx';
+import GmailConnector from '../../components/GmailConnector.jsx';
 
 // 1. Import our new custom hook
 import { useDashboard } from './useDashboard.js';
@@ -97,6 +98,7 @@ export default function DashboardPage() {
       >
         <div className="d-sm-flex align-items-center justify-content-between mb-4">
           <h1 className="h3 mb-0 text-gray-800">Dashboard</h1>
+          <GmailConnector />
         </div>
 
         <div className="row" id="trips-container">
