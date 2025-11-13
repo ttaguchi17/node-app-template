@@ -54,3 +54,21 @@ CREATE TABLE itinerary_event (
     
     FOREIGN KEY (trip_id) REFERENCES trip(trip_id) ON DELETE CASCADE
 );
+
+-- 5. Create the GmailTokens table to store OAuth tokens
+CREATE TABLE gmail_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  token_expiry DATETIME,
+  scope VARCHAR(512),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  -- This links the token to your 'user' table
+  FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE,
+  
+  -- This ensures one user can only have one row of tokens
+  UNIQUE KEY (user_id) 
+);

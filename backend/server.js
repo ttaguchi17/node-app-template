@@ -10,11 +10,9 @@ app.use(cors());
 app.use(express.json());
 
 // Mount routes
-app.use('/api', require('./routes/auth'));
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/trips', require('./routes/trips'));
-app.use('/api', require('./routes/events'));
-app.use('/api/emails', require('./routes/emails'));
-app.use('/api', require('./routes/gmail'));
+app.use('/api/gmail', require('./routes/gmail'));
 
 // Health check
 app.get('/health', (req, res) => {

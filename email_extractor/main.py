@@ -1,89 +1,114 @@
 # email_extractor/main.py
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional, List
+
+# Import your existing Python logic
 from filters.email_filter import should_process_email
 from extractors.booking_extractor import extract_booking_data
 from services.gmail_service import fetch_recent_booking_emails
 import json
 
-# Request model
-class ExtractRequest(BaseModel):
-    email_id: str
-    user_token: str
+# --- Define Request Models for our new routes ---
+class ScanRequest(BaseModel):
+    credentials_dict: dict
+    # We can add optional filters later
+    # start_date: Optional[str] = None
+    # end_date: Optional[str] = None
 
-# Create FastAPI app instance FIRST
+class SearchRequest(BaseModel):
+    credentials_dict: dict
+    query: str # Manual search query is required
+
 app = FastAPI(title="Tripp Email Extractor")
 
-# ✅ EXISTING ENDPOINT - Keep this
-@app.post("/extract")
-async def extract_email(request: ExtractRequest):
-    # Mock email (replace with Gmail API call later)
-    mock_email = {
-        "from": "confirmation@united.com",
-        "subject": "Your flight booking #UA123456",
-        "body": "Confirmation for flight UA 123 from JFK to LAX on December 25, 2025. Total: $450.00"
-    }
-    
-    should_process, reason = should_process_email(
-        sender=mock_email["from"],
-        subject=mock_email["subject"],
-        body=mock_email["body"]
-    )
-    
-    if not should_process:
-        raise HTTPException(status_code=400, detail=f"Rejected: {reason}")
-    
-    extracted_data = extract_booking_data(mock_email["body"], reason)
-    
-    return extracted_data
+# --- This is the "Automated Scan" endpoint ---
+@app.post("/scan")
+async def scan_emails(request: ScanRequest):
+    """
+    Fetches, filters, and extracts bookings using the default 30-day query.
+    """
+    try:
+        # 1. Fetch emails using the default query
+        # We pass custom_query=None so the fetcher uses its default
+        emails = fetch_recent_booking_emails(
+            request.credentials_dict, 
+            max_results=10, 
+            custom_query=None
+        )
+        
+        extracted_bookings = []
+        
+        # 2. Filter and Extract data from each email
+        for email in emails:
+            should_process, reason_or_type = should_process_email(email['from'], email['subject'], email['body'])
+            
+            if should_process:
+                print(f"Processing email {email['id']}, detected type: {reason_or_type}")
+                try:
+                    booking_data = extract_booking_data(email['body'], reason_or_type)
+                    
+                    # Add ID and Subject for the React review modal
+                    # We merge the extracted data (like 'airline') with our own
+                    booking_data['id'] = email['id']
+                    booking_data['title'] = email['subject']
+                    
+                    extracted_bookings.append(booking_data)
+                except Exception as e:
+                    print(f"Extraction failed for email {email['id']}: {e}")
+            else:
+                print(f"Skipping email {email['id']}: {reason_or_type}")
 
-# ✅ EXISTING ENDPOINT - Keep this
+        # 3. Send the final list of JSON bookings back to Node.js
+        return extracted_bookings # FastAPI automatically handles jsonify
+
+    except Exception as e:
+        print(f"Error in /scan: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- This is the "Manual Search" endpoint ---
+@app.post("/search")
+async def search_emails(request: SearchRequest):
+    """
+    Fetches, filters, and extracts bookings using a user-provided query.
+    """
+    try:
+        # 1. Fetch emails using the CUSTOM query
+        emails = fetch_recent_booking_emails(
+            request.credentials_dict, 
+            max_results=10, 
+            custom_query=request.query # Pass the user's query string
+        )
+        
+        extracted_bookings = []
+        
+        # 2. Filter and Extract (same logic as /scan)
+        for email in emails:
+            should_process, reason_or_type = should_process_email(email['from'], email['subject'], email['body'])
+            
+            if should_process:
+                print(f"Processing email {email['id']}, detected type: {reason_or_type}")
+                try:
+                    booking_data = extract_booking_data(email['body'], reason_or_type)
+                    booking_data['id'] = email['id']
+                    booking_data['title'] = email['subject']
+                    extracted_bookings.append(booking_data)
+                except Exception as e:
+                    print(f"Extraction failed for email {email['id']}: {e}")
+            else:
+                print(f"Skipping email {email['id']}: {reason_or_type}")
+
+        # 3. Send the final list back to Node.js
+        return extracted_bookings
+
+    except Exception as e:
+        print(f"Error in /search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Health Check Endpoint ---
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
 
-# ✅ NEW GMAIL ENDPOINTS - Add these AFTER app is created
-@app.post("/fetch-gmail")
-async def fetch_gmail(request: Request):
-    """
-    Fetch booking emails from Gmail
-    Body: { "credentials": {...} }
-    """
-    try:
-        body = await request.json()
-        emails = fetch_recent_booking_emails(body["credentials"], max_results=10)
-        return {"found": len(emails), "emails": emails}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Gmail error: {str(e)}")
-
-@app.post("/extract-gmail-batch")
-async def extract_gmail_batch(request: Request):
-    """
-    Fetch AND extract booking data from Gmail
-    Body: { "credentials": {...} }
-    """
-    try:
-        body = await request.json()
-        emails = fetch_recent_booking_emails(body["credentials"], max_results=10)
-        
-        results = []
-        for email in emails:
-            should_process, reason = should_process_email(
-                sender=email["from"],
-                subject=email["subject"],
-                body=email["body"]
-            )
-            
-            if should_process:
-                extracted = extract_booking_data(email["body"], reason)
-                results.append({
-                    "email_id": email["id"],
-                    "from": email["from"],
-                    "subject": email["subject"],
-                    "extracted": extracted
-                })
-        
-        return {"found": len(emails), "bookings": results}
-        
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Batch extraction error: {str(e)}")
+# NOTE: We removed the old /extract, /fetch-gmail, and /extract-gmail-batch routes
+# because /scan and /search have replaced them.
