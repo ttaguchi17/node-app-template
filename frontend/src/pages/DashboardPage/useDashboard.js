@@ -53,10 +53,10 @@ export function useDashboard() {
     try {
       // ... (copy/paste your entire fetchTrips 'try' block here) ...
       // ... (it includes fetching, normalizing, merging local data) ...
-      const response = await fetch('/api/trips', {
-        method: 'GET',
-        headers: token ? { Authorization: token } : {}
-      });
+      const response = await fetch('http://localhost:3000/api/trips', {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem('token');
         navigate('/login');

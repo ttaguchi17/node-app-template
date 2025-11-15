@@ -1,28 +1,32 @@
+// backend/routes/gmail.js
 const express = require('express');
 const router = express.Router();
 const { google } = require('googleapis');
 const jwt = require('jsonwebtoken');
-const mysql = require('mysql2/promise');
+const pool = require('../config/database');
 
-async function createConnection() {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    charset: 'utf8mb4' 
-  });
+// Node versions >=18 expose a global `fetch`. node-fetch v3 is ESM-only
+// and cannot be required from CommonJS. Provide a small helper that uses
+// the global fetch when available, otherwise dynamically imports node-fetch.
+async function nodeFetch(url, options) {
+  if (typeof fetch === 'function') {
+    return fetch(url, options);
+  }
+  const mod = await import('node-fetch');
+  const nf = mod && (mod.default || mod);
+  return nf(url, options);
 }
 
-// Middleware to authenticate token
+// --- Middleware (Copied from auth.js) ---
 const authenticateToken = (req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        return next();
+    }
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-
     if (!token) {
         return res.status(401).json({ error: 'No token provided' });
     }
-
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid token' });
@@ -32,130 +36,182 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// OAuth2 configuration
+// --- OAuth Setup ---
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.GOOGLE_REDIRECT_URI
 );
+const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 
-// Scopes for Gmail access
-const SCOPES = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.modify'
-];
+// --- GMAIL OAUTH ROUTES ---
 
-// Check Gmail connection status
-router.get('/auth/gmail/status', authenticateToken, async (req, res) => {
-    try {
-        const tokens = await req.user.gmail_tokens;
-        if (!tokens) {
-            return res.json({ connected: false, email: null, needs_reauth: false });
-        }
-
-        oauth2Client.setCredentials(tokens);
-        
-        try {
-            const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-            const profile = await gmail.users.getProfile({ userId: 'me' });
-            
-            return res.json({
-                connected: true,
-                email: profile.data.emailAddress,
-                needs_reauth: false
-            });
-        } catch (error) {
-            if (error.code === 401) {
-                return res.json({ connected: false, email: null, needs_reauth: true });
-            }
-            throw error;
-        }
-    } catch (error) {
-        console.error('Gmail status check error:', error);
-        res.status(500).json({ error: 'Failed to check Gmail connection status' });
-    }
+// ✅ Get OAuth URL
+router.get('/connect', authenticateToken, (req, res) => {
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: SCOPES,
+    prompt: 'consent'
+  });
+  res.json({ auth_url: authUrl });
 });
 
-// Generate Gmail OAuth URL
-router.get('/auth/gmail/connect', authenticateToken, (req, res) => {
-    const authUrl = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: SCOPES,
-        prompt: 'consent'
+// ✅ OAuth callback
+router.get('/callback', async (req, res) => {
+  const { code, state } = req.query;
+  let connection;
+  try {
+    if (!state) throw new Error('No state token provided.');
+    const user = jwt.verify(state, process.env.JWT_SECRET);
+    if (!user || !user.user_id) throw new Error('Invalid state token');
+
+    const { tokens } = await oauth2Client.getToken(code);
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const profile = await gmail.users.getProfile({ userId: 'me' });
+    const gmailAddress = profile.data.emailAddress;
+    const expiryDate = new Date(Date.now() + (tokens.expires_in || 3600) * 1000);
+    const expiryString = expiryDate.toISOString().slice(0, 19).replace('T', ' ');
+
+    connection = await pool.getConnection();
+    await connection.execute(
+      `INSERT INTO gmail_tokens (user_id, email, access_token, refresh_token, token_expiry, scope)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+       access_token = VALUES(access_token),
+       refresh_token = IFNULL(VALUES(refresh_token), refresh_token),
+       token_expiry = VALUES(token_expiry),
+       email = VALUES(email)`,
+      [
+        user.user_id,
+        gmailAddress,
+        tokens.access_token,
+        tokens.refresh_token || null,
+        expiryString,
+        tokens.scope
+      ]
+    );
+    
+    res.send(`<script>window.opener.postMessage({ type: 'GMAIL_CONNECTED' }, '*'); window.close();</script>`);
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    res.send(`<script>window.opener.postMessage({ type: 'GMAIL_ERROR' }, '*'); window.close();</script>`);
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// ✅ Check Gmail status
+router.get('/status', authenticateToken, async (req, res) => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      'SELECT email, token_expiry FROM gmail_tokens WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    const isConnected = rows.length > 0;
+    const needsReauth = isConnected && new Date(rows[0].token_expiry) < new Date();
+    res.json({
+      connected: isConnected,
+      email: isConnected ? rows[0].email : null,
+      needs_reauth: needsReauth
     });
-    res.json({ url: authUrl });
+  } catch (error) {
+     console.error('Gmail status error:', error);
+     res.status(500).json({ message: 'Failed to check Gmail status', error: error.message });
+  } finally {
+     if (connection) connection.release();
+  }
 });
 
-// Handle Gmail OAuth callback
-router.get('/auth/gmail/callback', async (req, res) => { // <-- GOOD: No middleware
-    try {
-        const { code, state } = req.query; // <-- GOOD: Get code AND state
-        const token = state; // The 'state' is our JWT
-
-        if (!token) {
-            throw new Error('No state token provided');
-        }
-
-        // 1. Verify the JWT from the state parameter
-        const user = jwt.verify(token, process.env.JWT_SECRET);
-        if (!user || !user.email) { // <-- Make sure your JWT contains the user ID
-            throw new Error('Invalid state token');
-        }
-
-        // 2. Get the Google tokens
-        const { tokens } = await oauth2Client.getToken(code);
-        
-        // 3. Store tokens against the user ID from the token
-        await updateUserGmailTokens(user.email, tokens);
-        
-        // 4. Send a postMessage to the main window and close the popup
-        res.send(`
-            <script>
-                window.opener.postMessage({ type: 'GMAIL_CONNECTED' }, '*');
-                window.close();
-            </script>
-        `);
-    } catch (error) {
-        console.error('Gmail callback error:', error);
-        // Send an error message back to the main window
-        res.send(`
-            <script>
-                window.opener.postMessage({ type: 'GMAIL_ERROR' }, '*');
-                window.close();
-            </script>
-        `);
-    }
+// ✅ Disconnect Gmail
+router.delete('/disconnect', authenticateToken, async (req, res) => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.execute(
+      'DELETE FROM gmail_tokens WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    res.json({ message: 'Gmail disconnected' });
+  } catch (error) {
+     console.error('Gmail disconnect error:', error);
+     res.status(500).json({ message: 'Failed to disconnect Gmail', error: error.message });
+  } finally {
+     if (connection) connection.release();
+  }
 });
 
-// Disconnect Gmail
-router.post('/auth/gmail/disconnect', authenticateToken, async (req, res) => {
-    try {
-        // Clear tokens from user record
-        await updateUserGmailTokens(req.user.email, null);
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Gmail disconnect error:', error);
-        res.status(500).json({ error: 'Failed to disconnect Gmail' });
+// --- GMAIL SCANNING ROUTES ---
+
+// ✅ Automated Scan
+router.post('/scan', authenticateToken, async (req, res) => {
+  const userId = req.user.user_id;
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      'SELECT gmail_tokens FROM user WHERE user_id = ?',
+      [userId]
+    );
+    if (rows.length === 0 || !rows[0].gmail_tokens) {
+      return res.status(404).json({ message: 'Gmail connection not found.' });
     }
+    const tokensString = rows[0].gmail_tokens;         // 1. Get the string, name it 'tokensString'
+    const tokensObject = JSON.parse(tokensString);
+    
+    const pythonResponse = await nodeFetch('http://localhost:8000/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credentials_dict: tokensObject })
+    });
+    if (!pythonResponse.ok) throw new Error(await pythonResponse.text());
+    
+    const extractedData = await pythonResponse.json();
+    res.json(extractedData);
+  } catch (error) {
+    console.error('Gmail scan route error:', error.message);
+    res.status(500).json({ message: 'Failed to scan Gmail', error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
 });
 
-async function updateUserGmailTokens(email, tokens) {
-    // This finds the user by email and stores the tokens
-    let connection;
-    try {
-        connection = await createConnection();
-        // Make sure your user table has a 'gmail_tokens' column (e.g., JSON or TEXT type)
-        await connection.execute(
-          'UPDATE user SET gmail_tokens = ? WHERE email = ?',
-          [tokens ? JSON.stringify(tokens) : null, email]
-        );
-    } catch (error) {
-        console.error('Failed to update user tokens in DB:', error);
-        throw new Error('Database error while saving tokens.');
-    } finally {
-        if (connection) await connection.end();
-    }
-}
+// ✅ Manual Search
+router.post('/search', authenticateToken, async (req, res) => {
+  const userId = req.user.user_id;
+  const { query } = req.body;
+  if (!query) return res.status(400).json({ message: 'A search query is required.' });
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      'SELECT gmail_tokens FROM user WHERE user_id = ?',
+      [userId]
+    );
+    if (rows.length === 0 || !rows[0].gmail_tokens) {
+      return res.status(404).json({ message: 'Gmail connection not found.' });
+    }
+    const tokensString = rows[0].gmail_tokens;         // 1. Get the string, name it 'tokensString'
+    const tokensObject = JSON.parse(tokensString);
+    
+    const pythonResponse = await nodeFetch('http://localhost:8000/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credentials_dict: tokensObject, query: query })
+    });
+    if (!pythonResponse.ok) throw new Error(await pythonResponse.text());
+
+    const extractedData = await pythonResponse.json();
+    res.json(extractedData);
+  } catch (error)
+ {
+    console.error('Gmail search route error:', error.message);
+    res.status(500).json({ message: 'Failed to search Gmail', error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
 module.exports = router;
- 

@@ -20,7 +20,7 @@ export function useAuthForm() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/login', { // Use relative URL
+      const response = await fetch('/api/auth/login', { // Use relative URL
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -48,7 +48,7 @@ export function useAuthForm() {
 
     try {
       // Call the create-account endpoint
-      const response = await fetch('/api/create-account', { // Use relative URL
+      const response = await fetch('/api/auth/create-account', { // Use relative URL
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

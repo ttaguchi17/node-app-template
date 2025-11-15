@@ -1,19 +1,29 @@
+# services/gmail_service.py
 import base64
 import re
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-def fetch_recent_booking_emails(credentials_dict, max_results=10):
+# --- THIS IS THE MODIFICATION ---
+# We've added 'custom_query=None'
+def fetch_recent_booking_emails(credentials_dict, max_results=10, custom_query=None):
     """
-    Fetch emails from Gmail using OAuth tokens
-    Returns: List of {id, from, subject, body}
+    Fetch emails from Gmail using OAuth tokens.
+    If custom_query is provided, it's used.
+    Otherwise, a default automated scan query is used.
     """
     try:
         creds = Credentials.from_authorized_user_info(credentials_dict)
         service = build('gmail', 'v1', credentials=creds)
         
-        # Search for travel emails from last 30 days
-        query = "newer_than:30d (from:united.com OR from:delta.com OR from:marriott.com OR from:booking.com OR from:hilton.com)"
+        # This is the new logic:
+        if custom_query:
+            query = custom_query
+            print(f"Executing CUSTOM Gmail query: {query}")
+        else:
+            # Default "Automated Scan" query
+            query = "newer_than:30d (from:united.com OR from:delta.com OR from:marriott.com OR from:booking.com OR from:hilton.com OR from:expedia.com OR from:airbnb.com OR from:eventbrite.com OR from:ticketmaster.com)"
+            print(f"Executing DEFAULT Gmail query: {query}")
         
         results = service.users().messages().list(
             userId='me',
@@ -23,21 +33,19 @@ def fetch_recent_booking_emails(credentials_dict, max_results=10):
         
         emails = []
         for msg in results.get('messages', []):
+            # ... (The rest of your function is perfect and unchanged)
             message = service.users().messages().get(
                 userId='me',
                 id=msg['id']
             ).execute()
             
-            # Extract headers
             headers = message['payload']['headers']
             subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
             sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown')
             
-            # Clean sender email
             email_match = re.search(r'<(.+?)>', sender)
             sender_email = email_match.group(1) if email_match else sender
             
-            # Get email body
             body = ""
             if 'parts' in message['payload']:
                 for part in message['payload']['parts']:
@@ -45,7 +53,7 @@ def fetch_recent_booking_emails(credentials_dict, max_results=10):
                         body_data = part['body'].get('data', '')
                         if body_data:
                             body = base64.urlsafe_b64decode(body_data).decode('utf-8')
-                        break
+                            break
             elif 'body' in message['payload']:
                 body_data = message['payload']['body'].get('data', '')
                 if body_data:
@@ -55,7 +63,7 @@ def fetch_recent_booking_emails(credentials_dict, max_results=10):
                 'id': msg['id'],
                 'from': sender_email,
                 'subject': subject,
-                'body': body[:2000]  # Limit body size
+                'body': body[:2000] # Limit body size
             })
         
         return emails
