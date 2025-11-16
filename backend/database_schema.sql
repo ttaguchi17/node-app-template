@@ -48,7 +48,7 @@ CREATE TABLE itinerary_event (
     location_display_name VARCHAR(255),
     latitude DECIMAL(10,8),
     longitude DECIMAL(11,8),
-    details TEXT, 
+    details LONGTEXT, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
 
     

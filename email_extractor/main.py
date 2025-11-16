@@ -3,6 +3,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 
+print("\n" + "="*50)
+print("  SUCCESSFULLY LOADED THE NEW main.py (v4)  ")
+print("="*50 + "\n")
+
 # Import your existing Python logic
 from filters.email_filter import should_process_email
 from extractors.booking_extractor import extract_booking_data
@@ -110,5 +114,3 @@ async def search_emails(request: SearchRequest):
 def health_check():
     return {"status": "healthy"}
 
-# NOTE: We removed the old /extract, /fetch-gmail, and /extract-gmail-batch routes
-# because /scan and /search have replaced them.

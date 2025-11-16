@@ -5,9 +5,13 @@ const { google } = require('googleapis');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 
-// Node versions >=18 expose a global `fetch`. node-fetch v3 is ESM-only
-// and cannot be required from CommonJS. Provide a small helper that uses
-// the global fetch when available, otherwise dynamically imports node-fetch.
+// --- ADD THIS TEST LOG AT THE TOP ---
+console.log("\n" + "="*50);
+console.log("   SUCCESSFULLY LOADED NEW gmail.js (v7)   ");
+console.log("="*50 + "\n");
+// ------------------------------------
+
+
 async function nodeFetch(url, options) {
   if (typeof fetch === 'function') {
     return fetch(url, options);
@@ -66,6 +70,7 @@ router.get('/callback', async (req, res) => {
     if (!user || !user.user_id) throw new Error('Invalid state token');
 
     const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     const profile = await gmail.users.getProfile({ userId: 'me' });
     const gmailAddress = profile.data.emailAddress;
@@ -148,7 +153,12 @@ router.delete('/disconnect', authenticateToken, async (req, res) => {
 router.post('/scan', authenticateToken, async (req, res) => {
   const userId = req.user.user_id;
   let connection;
+
+  // --- LOGGING ---
+  console.log(`\n[${new Date().toISOString()}] --- GMAIL /scan START (User: ${userId}) ---`);
+
   try {
+    // 1. --- (Your existing code to get credentials and call Python) ---
     connection = await pool.getConnection();
     const [rows] = await connection.execute(
       'SELECT gmail_tokens FROM user WHERE user_id = ?',
@@ -157,18 +167,77 @@ router.post('/scan', authenticateToken, async (req, res) => {
     if (rows.length === 0 || !rows[0].gmail_tokens) {
       return res.status(404).json({ message: 'Gmail connection not found.' });
     }
-    const tokensString = rows[0].gmail_tokens;         // 1. Get the string, name it 'tokensString'
-    const tokensObject = JSON.parse(tokensString);
+    const tokensString = rows[0].gmail_tokens;
+    const tokensObject = JSON.parse(tokensString); 
+    const credentials_for_python = {
+      ...tokensObject,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      token_uri: "https://oauth2.googleapis.com/token"
+    };
     
     const pythonResponse = await nodeFetch('http://localhost:8000/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credentials_dict: tokensObject })
+      body: JSON.stringify({ credentials_dict: credentials_for_python })
     });
+
     if (!pythonResponse.ok) throw new Error(await pythonResponse.text());
     
-    const extractedData = await pythonResponse.json();
-    res.json(extractedData);
+    const allBookingsFromPython = await pythonResponse.json();
+    // --- (End of your existing code) ---
+
+
+    // --- LOGGING (Step 1: What did Python send us?) ---
+    console.log(`[LOG] Step 1: Found ${allBookingsFromPython.length} total bookings in Gmail.`);
+    // Log just the IDs to see if they're present
+    console.log(`[LOG] Python Booking IDs: ${JSON.stringify(allBookingsFromPython.map(b => b.id))}`);
+    // ---
+
+
+    // 2. --- (Get existing IDs from our DB) ---
+    const [existingRows] = await connection.execute(
+      `SELECT JSON_UNQUOTE(JSON_EXTRACT(ie.details, '$.id')) AS emailId
+       FROM itinerary_event ie
+       JOIN trip_membership tm ON ie.trip_id = tm.trip_id
+       WHERE tm.user_id = ? AND JSON_EXTRACT(ie.details, '$.id') IS NOT NULL`,
+      [userId]
+    );
+
+    // 3. Create a "Set" of imported IDs for a super-fast lookup
+    const importedIds = new Set(existingRows.map(row => row.emailId));
+
+    // --- LOGGING (Step 2: What's already in our DB?) ---
+    console.log(`[LOG] Step 2: Found ${importedIds.size} already-imported event IDs in DB.`);
+    console.log(`[LOG] DB Imported IDs: ${JSON.stringify(Array.from(importedIds))}`);
+    // ---
+
+    // 4. Filter the list from Python
+    const newBookings = allBookingsFromPython.filter(
+      booking => {
+        // We MUST check if booking.id exists, or this will crash
+        if (!booking.id) {
+          console.warn('[LOG] Filtering out a booking that has no ID from Python.');
+          return false; // Filter it out
+        }
+        const isDuplicate = importedIds.has(booking.id);
+        if (isDuplicate) {
+          // --- LOGGING (Step 3: What are we filtering out?) ---
+          console.log(`[LOG] Filtering out duplicate: ${booking.id}`);
+          // ---
+        }
+        return !isDuplicate;
+      }
+    );
+
+    // --- LOGGING (Step 4: What's the final result?) ---
+    console.log(`[LOG] Step 4: Sending ${newBookings.length} new bookings to frontend.`);
+    console.log(`[${new Date().toISOString()}] --- GMAIL /scan END ---`);
+    // ---
+
+    // 5. Send the *filtered* list to the frontend
+    res.json(newBookings);
+
   } catch (error) {
     console.error('Gmail scan route error:', error.message);
     res.status(500).json({ message: 'Failed to scan Gmail', error: error.message });
@@ -184,7 +253,12 @@ router.post('/search', authenticateToken, async (req, res) => {
   if (!query) return res.status(400).json({ message: 'A search query is required.' });
 
   let connection;
+  
+  // --- LOGGING ---
+  console.log(`\n[${new Date().toISOString()}] --- GMAIL /search START (User: ${userId}) ---`);
+
   try {
+    // 1. --- (Your existing code to call Python) ---
     connection = await pool.getConnection();
     const [rows] = await connection.execute(
       'SELECT gmail_tokens FROM user WHERE user_id = ?',
@@ -193,20 +267,72 @@ router.post('/search', authenticateToken, async (req, res) => {
     if (rows.length === 0 || !rows[0].gmail_tokens) {
       return res.status(404).json({ message: 'Gmail connection not found.' });
     }
-    const tokensString = rows[0].gmail_tokens;         // 1. Get the string, name it 'tokensString'
-    const tokensObject = JSON.parse(tokensString);
+    const tokensString = rows[0].gmail_tokens;
+    const tokensObject = JSON.parse(tokensString); 
+    const credentials_for_python = {
+      ...tokensObject,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      token_uri: "https://oauth2.googleapis.com/token"
+    };
     
     const pythonResponse = await nodeFetch('http://localhost:8000/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credentials_dict: tokensObject, query: query })
+      body: JSON.stringify({ credentials_dict: credentials_for_python, query: query })
     });
+
     if (!pythonResponse.ok) throw new Error(await pythonResponse.text());
 
-    const extractedData = await pythonResponse.json();
-    res.json(extractedData);
-  } catch (error)
- {
+    const allBookingsFromPython = await pythonResponse.json();
+    // --- (End of your existing code) ---
+    
+    // --- LOGGING ---
+    console.log(`[LOG] Step 1: Found ${allBookingsFromPython.length} total bookings in Gmail.`);
+    console.log(`[LOG] Python Booking IDs: ${JSON.stringify(allBookingsFromPython.map(b => b.id))}`);
+    // ---
+
+    // 2. --- (Get existing IDs from our DB) ---
+    const [existingRows] = await connection.execute(
+      `SELECT JSON_UNQUOTE(JSON_EXTRACT(ie.details, '$.id')) AS emailId
+       FROM itinerary_event ie
+       JOIN trip_membership tm ON ie.trip_id = tm.trip_id
+       WHERE tm.user_id = ? AND JSON_EXTRACT(ie.details, '$.id') IS NOT NULL`,
+      [userId]
+    );
+
+    // 3. Create a "Set" of imported IDs
+    const importedIds = new Set(existingRows.map(row => row.emailId));
+
+    // --- LOGGING ---
+    console.log(`[LOG] Step 2: Found ${importedIds.size} already-imported event IDs in DB.`);
+    console.log(`[LOG] DB Imported IDs: ${JSON.stringify(Array.from(importedIds))}`);
+    // ---
+
+    // 4. Filter the list from Python
+    const newBookings = allBookingsFromPython.filter(
+      booking => {
+        if (!booking.id) {
+          console.warn('[LOG] Filtering out a booking that has no ID from Python.');
+          return false;
+        }
+        const isDuplicate = importedIds.has(booking.id);
+        if (isDuplicate) {
+          console.log(`[LOG] Filtering out duplicate: ${booking.id}`);
+        }
+        return !isDuplicate;
+      }
+    );
+
+    // --- LOGGING ---
+    console.log(`[LOG] Step 4: Sending ${newBookings.length} new bookings to frontend.`);
+    console.log(`[${new Date().toISOString()}] --- GMAIL /search END ---`);
+    // ---
+
+    // 5. Send the *filtered* list to the frontend
+    res.json(newBookings);
+
+  } catch (error) {
     console.error('Gmail search route error:', error.message);
     res.status(500).json({ message: 'Failed to search Gmail', error: error.message });
   } finally {

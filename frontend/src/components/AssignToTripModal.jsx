@@ -61,24 +61,17 @@ export default function AssignToTripModal({ show, onClose, bookingsToImport }) {
     // Loop over each selected booking and add it as an event
     for (const booking of bookingsToImport) {
       try {
-        // Prepare the event payload from the booking data
-        const eventPayload = {
-          title: booking.title || booking.hotel_name || booking.airline || 'New Booking',
-          type: booking.type || 'Other',
-          start_time: booking.departure?.date || booking.check_in || new Date().toISOString(),
-          end_time: booking.arrival?.date || booking.check_out || null,
-          location_input: booking.address?.city || booking.departure?.airport || '',
-          details: `Booking Reference: ${booking.booking_reference || 'N/A'}`
-        };
-
-        // Call your existing "Add Event" API endpoint
-        await axios.post(
-          `http://localhost:3000/api/trips/${selectedTripId}/events`,
-          eventPayload,
-          { headers: { Authorization: token } }
-        );
-        successCount++;
-      } catch (err) {
+        // --- THIS IS THE FIX ---
+        // We don't create a new 'eventPayload'.
+        // We send the original 'booking' object directly.
+        // Your backend 'trips.js' route is already built to handle this.
+        await axios.post(
+          `http://localhost:3000/api/trips/${selectedTripId}/events`,
+          booking, // <-- Send the original booking object
+          { headers: { Authorization: token } }
+        );
+        successCount++;
+      } catch (err) {
         console.error('Failed to import booking:', booking, err);
         failCount++;
       }

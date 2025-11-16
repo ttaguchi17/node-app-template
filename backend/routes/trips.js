@@ -5,9 +5,15 @@ const authenticateToken = require('../middleware/auth');
 const geocodeLocation = require('../services/geocoding');
 const pool = require('../config/database');
 
+<<<<<<< HEAD
 /**
  * Existing trip endpoints (unchanged)...
  */
+=======
+console.log("\n" + "="*50);
+console.log("   SUCCESSFULLY LOADED NEW trips.js (v5)   ");
+console.log("="*50 + "\n");
+>>>>>>> 538effe (Email logic polished and finished)
 
 // Get all trips for user
 router.get('/', authenticateToken, async (req, res) => {
@@ -215,6 +221,7 @@ router.delete('/:tripId', authenticateToken, async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 /**
  * NEW: Get members for a trip
  * GET /api/trips/:tripId/members
@@ -265,10 +272,43 @@ router.get('/:tripId/members', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('GET members error', err && err.stack ? err.stack : err);
     res.status(500).json({ message: 'Error fetching members.' });
+=======
+router.get('/:tripId/events', authenticateToken, async (req, res) => {
+  const { tripId } = req.params;
+
+  try {
+    // First, verify this trip belongs to the user (copying your logic)
+    const [tripRows] = await pool.execute(
+      `SELECT t.trip_id FROM trip t
+       JOIN trip_membership tm ON t.trip_id = tm.trip_id
+       JOIN user u ON tm.user_id = u.user_id
+       WHERE u.email = ? AND t.trip_id = ?`,
+      [req.user.email, tripId]
+    );
+
+    if (tripRows.length === 0) {
+      return res.status(404).json({ message: 'Trip not found or access denied.' });
+    }
+
+    // Now, get the events for that trip
+    // (Using 'itinerary_event' based on your DELETE route)
+    const [events] = await pool.execute(
+      'SELECT * FROM itinerary_event WHERE trip_id = ? ORDER BY start_time ASC',
+      [tripId]
+    );
+
+    // Return the events. This will be [] if none are found.
+    res.json(events);
+
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    res.status(500).json({ message: 'Server error fetching events', error: error.message });
+>>>>>>> 538effe (Email logic polished and finished)
   }
 });
 
 /**
+<<<<<<< HEAD
  * NEW: Invite users to a trip
  * POST /api/trips/:tripId/invitations
  * Body: { invited_user_ids: [1,2,3], invited_emails: [...], message: 'optional', role: 'member' }
@@ -386,3 +426,127 @@ router.post('/:tripId/invitations', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+=======
+ * @route   POST /api/trips/:tripId/events
+ * @desc    Create a new event from a booking (bulletproof version)
+ * @access  Private
+ */
+router.post('/:tripId/events', authenticateToken, async (req, res) => {
+  const { tripId } = req.params;
+  // Ensure booking is an object, even if req.body is null or weird
+  const booking = req.body || {}; 
+  const userId = req.user.user_id;
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // 1. Verify this trip belongs to the user
+    const [membership] = await connection.execute(
+      `SELECT tm.role FROM trip_membership tm
+       WHERE tm.user_id = ? AND tm.trip_id = ?`,
+      [userId, tripId]
+    );
+
+    if (membership.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Trip not found or access denied.' });
+    }
+
+    // 2. --- DUPLICATE CHECK (Now Safe) ---
+    // We only run this check if booking.id *actually exists*
+    if (booking.id) {
+      const [existing] = await connection.execute(
+        `SELECT ie.event_id FROM itinerary_event ie
+         JOIN trip_membership tm ON ie.trip_id = tm.trip_id
+         WHERE tm.user_id = ? AND JSON_EXTRACT(ie.details, '$.id') = ?
+         LIMIT 1`,
+        [userId, booking.id]
+      );
+      
+      if (existing.length > 0) {
+        await connection.rollback();
+        return res.status(208).json({ message: 'Event already imported.' });
+      }
+    } else {
+      // This is the log you're seeing. It's working as intended.
+      console.warn('Booking object has no ID. Skipping duplicate check.');
+    }
+
+    // 3. --- MAP DATA (Now Safe) ---
+    // We provide a fallback for *every single variable*
+    const type = (booking.type ? booking.type.charAt(0).toUpperCase() + booking.type.slice(1) : 'Activity');
+    const title = booking.title || booking.hotel_name || booking.airline || `${type} Booking`;
+    let location_input = booking.address || booking.hotel_name || booking.departure_airport || null;
+    let location_display_name = null;
+    let latitude = null;
+    let longitude = null;
+
+    // Extract dates from booking
+    let start_time = null;
+    let end_time = null;
+
+    try {
+      const startDateString = booking.check_in_date || booking.departure_date;
+      if (startDateString) {
+        start_time = startDateString;
+      }
+      const endDateString = booking.check_out_date || booking.arrival_date;
+      if (endDateString) {
+        end_time = endDateString;
+      }
+    } catch (e) {
+      console.warn('Error processing date string:', e.message);
+    }
+
+
+    // Geocode location if present
+    if (location_input) {
+      console.log(`📍 [Import Event] Geocoding location: "${location_input}"`);
+      const geoResult = await require('../services/geocoding')(location_input);
+      if (geoResult) {
+        console.log(`📍 [Import Event] Geocoding succeeded:`, geoResult);
+        location_display_name = geoResult.location_display_name;
+        latitude = geoResult.latitude;
+        longitude = geoResult.longitude;
+      } else {
+        console.warn(`📍 [Import Event] Geocoding returned null for "${location_input}"`);
+        location_display_name = location_input;
+      }
+    } else {
+      console.warn(`📍 [Import Event] No location_input to geocode`);
+    }
+    
+    const details = JSON.stringify(booking, null, 2);
+    const cost = booking.price_usd || 0.00;
+
+    // Insert with dates, geocoded fields, and cost
+    const [result] = await connection.execute(
+      `INSERT INTO itinerary_event (trip_id, title, type, start_time, end_time, location_input, location_display_name, latitude, longitude, details, cost)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tripId, title, type, start_time, end_time, location_input, location_display_name, latitude, longitude, details, cost]
+    );
+
+    const newEventId = result.insertId;
+
+    // Fetch and return the newly created event
+    const [newEventRows] = await connection.execute(
+      'SELECT * FROM itinerary_event WHERE event_id = ?',
+      [newEventId]
+    );
+    
+    await connection.commit();
+    res.status(201).json(newEventRows[0]); // Send the new event back
+
+  } catch (error) {
+    await connection.rollback();
+    // We can now see the *real* error, if there is one
+    console.error('Error creating event:', error); 
+    res.status(500).json({ message: 'Server error creating event', error: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
+module.exports = router;
+>>>>>>> 538effe (Email logic polished and finished)

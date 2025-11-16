@@ -146,18 +146,32 @@ const handleSimpleScan = async () => {
   
   // --- NEW: Handler for the "Manual Search" form ---
   const handleManualSearch = async (e) => {
-    e.preventDefault(); // Stop form from reloading page
-    if (!searchQuery) return; // Don't search if empty
-    
-    setIsScanning(true);
-    try {
-      const token = localStorage.getItem('token');
-      // 2. Call the new '/search' route
-      const response = await axios.post('http://localhost:3000/api/gmail/search', 
-        { 
-          query: searchQuery // Send the user's query
-        }, 
-        {
+    e.preventDefault(); // Stop form from reloading page
+    if (!searchQuery) return; // Don't search if empty
+    
+    setIsScanning(true);
+
+    // --- NEW "SMART SEARCH" LOGIC ---
+    let finalQuery = '';
+    if (searchQuery.includes('@')) {
+      // If user typed an email, build a 'from:' query
+      finalQuery = `from:${searchQuery}`;
+    } else {
+      // Otherwise, build a 'subject:' query
+      finalQuery = `subject:${searchQuery}`;
+    }
+    
+    console.log(`Executing smart search with query: ${finalQuery}`);
+    // --- END OF NEW LOGIC ---
+
+    try {
+      const token = localStorage.getItem('token');
+      // 2. Call the new '/search' route
+      const response = await axios.post('http://localhost:3000/api/gmail/search', 
+        { 
+          query: finalQuery // <-- SEND THE NEW, BUILT QUERY
+        }, 
+        {
           headers: { Authorization: `Bearer ${token}` }
         }
       );

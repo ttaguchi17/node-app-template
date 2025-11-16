@@ -14,6 +14,8 @@ app.use(express.json());
 // Mount routes (make sure these files exist under backend/routes)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/trips', require('./routes/trips'));
+// Mount events routes (contains delete/update for individual events)
+app.use('/api', require('./routes/events'));
 app.use('/api/gmail', require('./routes/gmail'));
 
 // New /api/users route (make sure backend/routes/users.js exists)

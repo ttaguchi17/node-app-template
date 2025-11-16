@@ -17,6 +17,8 @@ TRUSTED_SENDERS = {
     # Events
     r'.*@eventbrite\.com$',
     r'.*@ticketmaster\.com$',
+    #Test
+    r'KantemirMuratov@gmail\.com$'
 }
 
 # Define required keywords for each type
