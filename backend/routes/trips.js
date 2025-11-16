@@ -5,15 +5,9 @@ const authenticateToken = require('../middleware/auth');
 const geocodeLocation = require('../services/geocoding');
 const pool = require('../config/database');
 
-<<<<<<< HEAD
-/**
- * Existing trip endpoints (unchanged)...
- */
-=======
 console.log("\n" + "="*50);
 console.log("   SUCCESSFULLY LOADED NEW trips.js (v5)   ");
 console.log("="*50 + "\n");
->>>>>>> 538effe (Email logic polished and finished)
 
 // Get all trips for user
 router.get('/', authenticateToken, async (req, res) => {
@@ -221,7 +215,6 @@ router.delete('/:tripId', authenticateToken, async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
 /**
  * NEW: Get members for a trip
  * GET /api/trips/:tripId/members
@@ -272,7 +265,9 @@ router.get('/:tripId/members', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('GET members error', err && err.stack ? err.stack : err);
     res.status(500).json({ message: 'Error fetching members.' });
-=======
+  }
+});
+
 router.get('/:tripId/events', authenticateToken, async (req, res) => {
   const { tripId } = req.params;
 
@@ -303,12 +298,10 @@ router.get('/:tripId/events', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching events:', error);
     res.status(500).json({ message: 'Server error fetching events', error: error.message });
->>>>>>> 538effe (Email logic polished and finished)
   }
 });
 
 /**
-<<<<<<< HEAD
  * NEW: Invite users to a trip
  * POST /api/trips/:tripId/invitations
  * Body: { invited_user_ids: [1,2,3], invited_emails: [...], message: 'optional', role: 'member' }
@@ -426,7 +419,7 @@ router.post('/:tripId/invitations', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
-=======
+/**
  * @route   POST /api/trips/:tripId/events
  * @desc    Create a new event from a booking (bulletproof version)
  * @access  Private
@@ -549,4 +542,3 @@ router.post('/:tripId/events', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
->>>>>>> 538effe (Email logic polished and finished)
