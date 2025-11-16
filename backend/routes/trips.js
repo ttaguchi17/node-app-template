@@ -1,8 +1,13 @@
+// backend/routes/trips.js
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/auth');
 const geocodeLocation = require('../services/geocoding');
 const pool = require('../config/database');
+
+/**
+ * Existing trip endpoints (unchanged)...
+ */
 
 // Get all trips for user
 router.get('/', authenticateToken, async (req, res) => {
@@ -14,7 +19,7 @@ router.get('/', authenticateToken, async (req, res) => {
         WHERE u.email = ?`,
       [req.user.email]
     );
-    
+
     res.status(200).json(trips);
   } catch (error) {
     console.error(error);
@@ -81,22 +86,21 @@ router.post('/', authenticateToken, async (req, res) => {
       `INSERT INTO trip (${fields.join(', ')}) VALUES (${placeholders})`,
       values
     );
-    
+
     const newTripId = tripResult.insertId;
 
     // Add user to trip as organizer
     await connection.execute(
-      'INSERT INTO trip_membership (user_id, trip_id, role) VALUES (?, ?, ?)',
+      'INSERT INTO trip_membership (user_id, trip_id, role, status, invited_at) VALUES (?, ?, ?, \'accepted\', NOW())',
       [req.user.user_id, newTripId, 'organizer']
     );
-    
+
     await connection.commit();
 
     res.status(201).json({
       trip_id: newTripId,
-      ...insertData 
+      ...insertData
     });
-
   } catch (error) {
     await connection.rollback();
     console.error('Error creating trip:', error);
@@ -174,7 +178,7 @@ router.patch('/:tripId', authenticateToken, async (req, res) => {
 router.delete('/:tripId', authenticateToken, async (req, res) => {
   const { tripId } = req.params;
   const connection = await pool.getConnection();
-  
+
   try {
     await connection.beginTransaction();
 
@@ -208,6 +212,176 @@ router.delete('/:tripId', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Error deleting trip.' });
   } finally {
     connection.release();
+  }
+});
+
+/**
+ * NEW: Get members for a trip
+ * GET /api/trips/:tripId/members
+ *
+ * Returns normalized rows: { id, user_id, name, email, role, status }
+ */
+router.get('/:tripId/members', authenticateToken, async (req, res) => {
+  const { tripId } = req.params;
+
+  try {
+    // Ensure requesting user is a member (access control)
+    const [access] = await pool.execute(
+      `SELECT 1 FROM trip_membership tm
+       JOIN user u ON tm.user_id = u.user_id
+       WHERE tm.trip_id = ? AND u.email = ? LIMIT 1`,
+      [tripId, req.user.email]
+    );
+    if (access.length === 0) {
+      return res.status(403).json({ message: 'Access denied.' });
+    }
+
+    const [rows] = await pool.execute(
+      `SELECT tm.*, u.*
+       FROM trip_membership tm
+       LEFT JOIN user u ON u.user_id = tm.user_id
+       WHERE tm.trip_id = ?`,
+      [tripId]
+    );
+
+    // normalize column names to simple shape (works with many schemas)
+    const normalized = (rows || []).map(r => {
+      const membershipId = r.id ?? r.membership_id ?? r.trip_membership_id ?? r.tm_id ?? r.trip_member_id ?? null;
+      const userId = r.user_id ?? r.userId ?? r.id ?? null; // r.id might collide; prefer user_id if available
+      const name = r.name ?? r.user_name ?? null;
+      const email = r.email ?? r.user_email ?? null;
+
+      return {
+        id: membershipId,
+        user_id: userId,
+        name,
+        email,
+        role: r.role,
+        status: r.status,
+      };
+    });
+
+    res.status(200).json(normalized);
+  } catch (err) {
+    console.error('GET members error', err && err.stack ? err.stack : err);
+    res.status(500).json({ message: 'Error fetching members.' });
+  }
+});
+
+/**
+ * NEW: Invite users to a trip
+ * POST /api/trips/:tripId/invitations
+ * Body: { invited_user_ids: [1,2,3], invited_emails: [...], message: 'optional', role: 'member' }
+ *
+ * Inserts trip_membership rows with status='invited'. Skips existing memberships.
+ * Also creates notifications in notifications table if present (best-effort).
+ */
+router.post('/:tripId/invitations', authenticateToken, async (req, res) => {
+  const { tripId } = req.params;
+  const { invited_user_ids = [], invited_emails = [], message = '', role = 'member' } = req.body;
+  const invitedBy = req.user.user_id || null;
+
+  if ((!Array.isArray(invited_user_ids) || invited_user_ids.length === 0) && (!Array.isArray(invited_emails) || invited_emails.length === 0)) {
+    return res.status(400).json({ message: 'No invitees provided.' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // ensure requester is organizer/admin or a member with invite rights
+    const [perm] = await conn.execute(
+      `SELECT tm.role FROM trip_membership tm
+       JOIN user u ON tm.user_id = u.user_id
+       WHERE tm.trip_id = ? AND u.email = ? LIMIT 1`,
+      [tripId, req.user.email]
+    );
+    if (perm.length === 0) {
+      await conn.rollback();
+      return res.status(403).json({ message: 'Access denied.' });
+    }
+    const requesterRole = perm[0].role || '';
+    if (!['organizer', 'owner', 'admin', 'member'].includes(requesterRole) && requesterRole !== 'organizer') {
+      // by default allow organizer/admin/owner; you can tighten this
+      await conn.rollback();
+      return res.status(403).json({ message: 'Insufficient permissions to invite.' });
+    }
+
+    const created = [];
+
+    // handle numeric user ids invites
+    for (const uidRaw of invited_user_ids) {
+      const uid = Number(uidRaw);
+      if (isNaN(uid)) continue;
+
+      // skip if membership already exists
+      const [exists] = await conn.execute(
+        `SELECT 1 FROM trip_membership WHERE trip_id = ? AND user_id = ? LIMIT 1`,
+        [tripId, uid]
+      );
+      if (exists.length) {
+        // if previously removed/declined, you might want to update status -> invited; for now skip
+        continue;
+      }
+
+      const [ins] = await conn.execute(
+        `INSERT INTO trip_membership (trip_id, user_id, role, status, invited_by_user_id, invited_at)
+         VALUES (?, ?, ?, 'invited', ?, NOW())`,
+        [tripId, uid, role, invitedBy]
+      );
+      created.push({ id: ins.insertId, trip_id: Number(tripId), user_id: uid });
+    }
+
+    // (optional) handle invited_emails: store in a separate invitations table or insert with user_id = NULL
+    // For class project we skip emails or you can create a row in an invitations table.
+
+    // Optionally insert notifications into notifications table (best-effort)
+    try {
+      for (const c of created) {
+        await conn.execute(
+          `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
+           VALUES (?, 'trip_invite', ?, ?, ?, NOW())`,
+          [c.user_id, `You were invited to trip ${tripId}`, message || `You've been invited to join a trip.`, JSON.stringify({ trip_id: tripId })]
+        );
+      }
+    } catch (nErr) {
+      // don't fail invites if notification insert fails
+      console.warn('Notification insert failed (non-fatal):', nErr.message || nErr);
+    }
+
+    await conn.commit();
+
+    // return updated members list for convenience
+    const [rows] = await pool.execute(
+      `SELECT tm.*, u.*
+       FROM trip_membership tm
+       LEFT JOIN user u ON u.user_id = tm.user_id
+       WHERE tm.trip_id = ?`,
+      [tripId]
+    );
+    const normalized = (rows || []).map(r => {
+      const membershipId = r.id ?? r.membership_id ?? r.trip_membership_id ?? r.tm_id ?? r.trip_member_id ?? null;
+      const userId = r.user_id ?? r.userId ?? r.id ?? null;
+      const name = r.name ?? r.user_name ?? null;
+      const email = r.email ?? r.user_email ?? null;
+
+      return {
+        id: membershipId,
+        user_id: userId,
+        name,
+        email,
+        role: r.role,
+        status: r.status,
+      };
+    });
+
+    res.status(200).json({ success: true, created_count: created.length, members: normalized });
+  } catch (err) {
+    await conn.rollback();
+    console.error('POST invitations error', err && err.stack ? err.stack : err);
+    res.status(500).json({ message: 'Error sending invites.' });
+  } finally {
+    conn.release();
   }
 });
 

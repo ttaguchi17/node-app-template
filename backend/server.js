@@ -1,6 +1,8 @@
+// backend/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -9,10 +11,30 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Mount routes
+// Mount routes (make sure these files exist under backend/routes)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/trips', require('./routes/trips'));
 app.use('/api/gmail', require('./routes/gmail'));
+
+// New /api/users route (make sure backend/routes/users.js exists)
+try {
+  app.use('/api/users', require('./routes/users'));
+} catch (err) {
+  console.warn('Warning: /api/users route not mounted — routes/users.js not found or errored:', err && err.message);
+}
+
+// Optional: mount other routes if you have them
+// (emails.js, events.js etc. - comment out if you don't have those files)
+try {
+  app.use('/api/emails', require('./routes/emails'));
+} catch (err) {
+  // ignore if not present
+}
+try {
+  app.use('/api/events', require('./routes/events'));
+} catch (err) {
+  // ignore if not present
+}
 
 // Health check
 app.get('/health', (req, res) => {
@@ -32,5 +54,4 @@ app.use((err, req, res, next) => {
 
 app.listen(port, () => {
   console.log(`✅ Backend API server running at http://localhost:${port}`);
-  console.log(`📧 Email extractor service at http://localhost:8000`);
 });
