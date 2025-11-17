@@ -1,12 +1,17 @@
+// backend/routes/notifications.js
 const express = require('express');
 const router = express.Router();
-<<<<<<< HEAD
-const db = require('../config/database'); // mysql2/promise pool
+const pool = require('../config/database'); // mysql2/promise pool
+const authenticateToken = require('../middleware/auth');
 
-// POST /api/notifications
-// body: { recipient_user_id, type, title, body, metadata }
+/**
+ * POST /api/notifications
+ * Create a notification.
+ * body: { recipient_user_id, type, title, body, metadata }
+ * (No auth here — adjust to require auth if desired)
+ */
 router.post('/', async (req, res) => {
-  const { recipient_user_id, type, title, body, metadata } = req.body;
+  const { recipient_user_id, type, title, body: content, metadata } = req.body;
   if (!recipient_user_id || !type) {
     return res.status(400).json({ error: 'recipient_user_id and type required' });
   }
@@ -14,56 +19,55 @@ router.post('/', async (req, res) => {
   try {
     const metaString = metadata ? JSON.stringify(metadata) : null;
 
-    const [result] = await db.execute(
+    const [result] = await pool.execute(
       `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
        VALUES (?, ?, ?, ?, ?, NOW())`,
-      [recipient_user_id, type, title || null, body || null, metaString]
+      [recipient_user_id, type, title || null, content || null, metaString]
     );
 
-    // MySQL insertId -> fetch inserted row (use notification_id if that's your PK)
     const insertId = result.insertId;
 
-    // try a few candidate PK names to be tolerant
-    const pkNames = ['notification_id', 'id', 'notificationId'];
+    // Try to load the created row (be tolerant to different PK names)
+    const pkCandidates = ['id', 'notification_id', 'notificationId'];
     let row = null;
-    for (const pk of pkNames) {
-      const [rows] = await db.execute(`SELECT * FROM notifications WHERE ${pk} = ? LIMIT 1`, [insertId]);
-      if (rows && rows.length) {
-        row = rows[0];
-        break;
+    for (const pk of pkCandidates) {
+      try {
+        const [rows] = await pool.execute(`SELECT * FROM notifications WHERE ${pk} = ? LIMIT 1`, [insertId]);
+        if (rows && rows.length) {
+          row = rows[0];
+          break;
+        }
+      } catch (e) {
+        // column might not exist; ignore and try next
       }
     }
 
     if (!row) {
-      // fallback: return simple created info
       return res.status(201).json({ success: true, insertId });
     }
 
-    // parse metadata JSON if present
+    // parse metadata if present
     try {
-      if (row.metadata && typeof row.metadata === 'string') {
-        row.metadata = JSON.parse(row.metadata);
-      }
-    } catch (e) {
-      // leave metadata as raw string if parse fails
-    }
+      if (row.metadata && typeof row.metadata === 'string') row.metadata = JSON.parse(row.metadata);
+    } catch (e) { /* leave as-is if parse fails */ }
 
     res.status(201).json(row);
   } catch (err) {
     console.error('POST /api/notifications error', err && err.stack ? err.stack : err);
     res.status(500).json({ error: 'db error' });
-=======
-const pool = require('../config/database');
-const authenticateToken = require('../middleware/auth');
+  }
+});
 
 /**
- * @route   GET /api/notifications
- * @desc    Get all notifications for the current user
+ * GET /api/notifications
+ * Get notifications for authenticated user (limit 50).
+ * Query: ?unread_only=true
  */
 router.get('/', authenticateToken, async (req, res) => {
-  const userId = req.user.user_id;
-  const { unread_only } = req.query;
+  const userId = req.user && req.user.user_id;
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
+  const { unread_only } = req.query;
   try {
     let query = `SELECT * FROM notifications WHERE recipient_user_id = ?`;
     const params = [userId];
@@ -71,64 +75,15 @@ router.get('/', authenticateToken, async (req, res) => {
     if (unread_only === 'true') {
       query += ` AND is_read = FALSE`;
     }
-
     query += ` ORDER BY created_at DESC LIMIT 50`;
 
-    const [notifications] = await pool.execute(query, params);
-    res.json(notifications);
-  } catch (error) {
-    console.error('Get notifications error:', error);
-    res.status(500).json({ message: 'Error fetching notifications.' });
-  }
-});
+    const [rows] = await pool.execute(query, params);
 
-/**
- * @route   PATCH /api/notifications/:id/read
- * @desc    Mark a notification as read
- */
-router.patch('/:id/read', authenticateToken, async (req, res) => {
-  const notificationId = req.params.id;
-  const userId = req.user.user_id;
-
-  try {
-    await pool.execute(
-      `UPDATE notifications SET is_read = TRUE WHERE id = ? AND recipient_user_id = ?`,
-      [notificationId, userId]
-    );
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Mark read error:', error);
-    res.status(500).json({ message: 'Error updating notification.' });
->>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
-  }
-});
-
-/**
- * @route   POST /api/notifications/:id/respond
- * @desc    Handle actions like 'accept' or 'decline' for an invite
- */
-router.post('/:id/respond', authenticateToken, async (req, res) => {
-  const notificationId = req.params.id;
-  const userId = req.user.user_id;
-  const { action } = req.body; // 'accept' or 'decline'
-
-  if (!['accept', 'decline'].includes(action)) {
-    return res.status(400).json({ message: 'Invalid action.' });
-  }
-
-  const connection = await pool.getConnection();
-  try {
-<<<<<<< HEAD
-    const [rows] = await db.execute(
-      `SELECT * FROM notifications WHERE recipient_user_id = ? ORDER BY created_at DESC LIMIT 100`,
-      [rid]
-    );
-
-    const normalized = (rows || []).map(r => {
-      // parse metadata if string
+    // Normalize rows: parse metadata + unify id field
+    const normalized = (rows || []).map((r) => {
       let meta = r.metadata;
       try { if (meta && typeof meta === 'string') meta = JSON.parse(meta); } catch (e) { /* ignore */ }
-      // unify id column name
+
       const id = r.notification_id ?? r.id ?? r.notificationId ?? null;
       return {
         id,
@@ -139,7 +94,7 @@ router.post('/:id/respond', authenticateToken, async (req, res) => {
         metadata: meta,
         is_read: Number(r.is_read || r.read_flag || 0),
         created_at: r.created_at,
-        raw: r
+        raw: r,
       };
     });
 
@@ -150,38 +105,65 @@ router.post('/:id/respond', authenticateToken, async (req, res) => {
   }
 });
 
-// PATCH /api/notifications/:id/read  -> mark read/unread
-router.patch('/:id/read', async (req, res) => {
+/**
+ * PATCH /api/notifications/:id/read
+ * Mark notification read/unread. Body: { is_read: true/false }
+ * Only authenticated users may update their own notifications.
+ */
+router.patch('/:id/read', authenticateToken, async (req, res) => {
   const id = req.params.id;
+  const userId = req.user && req.user.user_id;
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
   const isRead = req.body.is_read === undefined ? 1 : (req.body.is_read ? 1 : 0);
 
   try {
-    // update by common PK candidates
-    const candidates = ['notification_id', 'id', 'notificationId'];
+    // Try common id column names
+    const candidates = ['id', 'notification_id', 'notificationId'];
     let updated = false;
     for (const col of candidates) {
       try {
-        const [result] = await db.execute(`UPDATE notifications SET is_read = ? WHERE ${col} = ?`, [isRead, id]);
+        const [result] = await pool.execute(
+          `UPDATE notifications SET is_read = ? WHERE ${col} = ? AND recipient_user_id = ?`,
+          [isRead, id, userId]
+        );
         if (result && result.affectedRows > 0) {
           updated = true;
           break;
         }
       } catch (e) {
-        // column might not exist — ignore and try next
+        // column might not exist -> ignore and continue
       }
     }
+
     if (!updated) return res.status(404).json({ error: 'Notification not found' });
 
     res.json({ success: true, is_read: isRead });
   } catch (err) {
-    console.error('PATCH /api/notifications/:id/read error', err);
+    console.error('PATCH /api/notifications/:id/read error', err && err.stack ? err.stack : err);
     res.status(500).json({ error: 'db error' });
-=======
+  }
+});
+
+/**
+ * POST /api/notifications/:id/respond
+ * Handle actions like 'accept' or 'decline' for an invite notification.
+ * Body: { action: 'accept'|'decline' }
+ */
+router.post('/:id/respond', authenticateToken, async (req, res) => {
+  const notificationId = req.params.id;
+  const userId = req.user && req.user.user_id;
+  const { action } = req.body;
+
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  if (!['accept', 'decline'].includes(action)) return res.status(400).json({ message: 'Invalid action.' });
+
+  const connection = await pool.getConnection();
+  try {
     await connection.beginTransaction();
 
-    // 1. Get the notification to verify ownership and get metadata
     const [rows] = await connection.execute(
-      `SELECT * FROM notifications WHERE id = ? AND recipient_user_id = ?`,
+      `SELECT * FROM notifications WHERE id = ? AND recipient_user_id = ? LIMIT 1`,
       [notificationId, userId]
     );
 
@@ -189,24 +171,22 @@ router.patch('/:id/read', async (req, res) => {
       await connection.rollback();
       return res.status(404).json({ message: 'Notification not found.' });
     }
+
     const notif = rows[0];
-    
-    // Parse metadata if it's a string, or use it directly if it's an object
     const metadata = typeof notif.metadata === 'string' ? JSON.parse(notif.metadata) : notif.metadata;
 
-    // 2. Handle Trip Invites
-    if (notif.type === 'trip_invite') {
+    // Example: handle trip invite type
+    if (notif.type === 'trip_invite' && metadata && metadata.trip_id) {
       const tripId = metadata.trip_id;
-      
+
       if (action === 'accept') {
-        // Update membership to 'accepted'
+        // mark membership accepted (table name may vary)
         await connection.execute(
           `UPDATE trip_membership SET status = 'accepted' WHERE trip_id = ? AND user_id = ?`,
           [tripId, userId]
         );
-        // (Optional) Create a "User joined" notification for the organizer/group could go here
       } else {
-        // 'decline' - Remove the membership row entirely
+        // decline -> remove membership row
         await connection.execute(
           `DELETE FROM trip_membership WHERE trip_id = ? AND user_id = ?`,
           [tripId, userId]
@@ -214,23 +194,17 @@ router.patch('/:id/read', async (req, res) => {
       }
     }
 
-    // 3. Mark the notification as read (or delete it)
-    // We'll mark it read so it stays in history
-    await connection.execute(
-      `UPDATE notifications SET is_read = TRUE WHERE id = ?`,
-      [notificationId]
-    );
+    // mark notification read
+    await connection.execute(`UPDATE notifications SET is_read = TRUE WHERE id = ?`, [notificationId]);
 
     await connection.commit();
     res.json({ message: `Invitation ${action}ed successfully.` });
-
   } catch (error) {
     await connection.rollback();
-    console.error('Respond error:', error);
+    console.error('Respond error:', error && error.stack ? error.stack : error);
     res.status(500).json({ message: 'Error responding to notification.' });
   } finally {
     connection.release();
->>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
   }
 });
 

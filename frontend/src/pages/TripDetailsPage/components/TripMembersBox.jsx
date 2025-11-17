@@ -251,7 +251,8 @@ export default function TripMembersBox({ trip, currentUser }) {
     const payload = { invited_user_ids, message, role: 'member' };
 
     try {
-      const res = await fetch(`/api/trips/${tripId}/members/invitations`, {
+      // <<< FIXED: use backend route /api/trips/:tripId/invitations (no /members segment) >>>
+      const res = await fetch(`/api/trips/${tripId}/invitations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(payload),
