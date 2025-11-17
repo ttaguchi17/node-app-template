@@ -1,11 +1,10 @@
+// backend/routes/auth.js
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { google } = require('googleapis');
 const pool = require('../config/database');
 const authenticateToken = require('../middleware/auth'); 
-const fetch = require('node-fetch')
 
 // ====================
 // AUTH ROUTES (Login/Register)
@@ -55,14 +54,22 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
     
-    res.status(200).json({ token, user_id: user.user_id });
+    // --- THIS IS THE FIX ---
+    // We return a 'user' object containing the ID and Email.
+    // This matches what useAuthForm.js expects: data.user
+    res.status(200).json({ 
+      token, 
+      user: {
+        user_id: user.user_id,
+        email: user.email
+      }
+    });
+    // -----------------------
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error logging in.' });
   }
 });
 
-// ====================
-// EXPORT ROUTER (MUST BE LAST)
-// ====================
 module.exports = router;

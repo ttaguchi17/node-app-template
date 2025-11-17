@@ -18,11 +18,29 @@ import EditEventModal from './components/EditEventModal.jsx';
 export default function TripDetailsPage() {
   const { tripId } = useParams();
   const navigate = useNavigate();
+
+  // --- 1. SAFER USER PARSING (The Fix) ---
+  const rawUser = localStorage.getItem('user');
+  console.log("🔍 DEBUG [TripDetailsPage] Raw localStorage value:", rawUser);
+
+  let user = null;
+  try {
+    // Check if it is valid JSON and not the string "undefined"
+    if (rawUser && rawUser !== "undefined") {
+      user = JSON.parse(rawUser);
+    }
+  } catch (e) {
+    console.error("❌ Error parsing user JSON:", e);
+    localStorage.removeItem('user'); // Clear bad data
+  }
+  console.log("🔍 DEBUG [TripDetailsPage] Final user object:", user);
+  // ---------------------------------------
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
   const [eventToEdit, setEventToEdit] = useState(null);
 
-  // 1. Call our custom hook to get all logic and state
+  // 2. Call our custom hook
   const {
     trip,
     events,
@@ -33,42 +51,27 @@ export default function TripDetailsPage() {
     createTripOnServer,
     saveTripDetails,
     fetchEvents,
-    deleteTrip,
-    deleteEvent
-  } = useTripDetails(tripId); // NOTE: This assumes 'useTripDetails.js' is in 'src/hooks/'
+    deleteTrip, // We use the deleteTrip from the hook now
+    deleteEvent,
+    accessError // Assuming you added this in the previous step
+  } = useTripDetails(tripId); 
 
+
+  console.log("DEBUG TRIP ROLE:", trip?.my_role);
+
+  
   const goBack = () => navigate(-1);
   const openEditModal = (event) => setEventToEdit(event);
   const closeEditModal = () => setEventToEdit(null);
 
   const handleEventUpdated = () => {
-    // Just refresh the event list
     fetchEvents(trip.trip_id);
   };
 
-  // Delete handler for the trip
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this trip and all its data? This cannot be undone.')) return;
-    setDeleteError(null);
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Not authenticated');
-      const auth = token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`;
-      const id = encodeURIComponent(trip.trip_id ?? trip.id ?? tripId);
-      const res = await fetch(`/api/trips/${id}`, { method: 'DELETE', headers: { Authorization: auth } });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || `Delete failed (status ${res.status})`);
-      }
-      // On success, navigate back to dashboard
-      navigate('/dashboard');
-    } catch (err) {
-      console.error('Delete trip error', err);
-      setDeleteError(err.message || 'Failed to delete trip.');
-    }
-  };
+  // Check if current user is the organizer (for the Delete Trip button)
+  const isOrganizer = trip?.my_role === 'organizer' || trip?.my_role === 'owner';
 
-  // 2. Render simple loading state
+  // 3. Render simple loading state
   if (loading) {
     return (
       <Layout>
@@ -77,20 +80,29 @@ export default function TripDetailsPage() {
     );
   }
 
-  // 3. Render error state
+  // 4. Render error state
   if (!trip) {
     return (
       <Layout>
         <div className="container-fluid p-3">
-          <Alert variant="warning">Could not find the trip details.</Alert>
+          {/* Show a helpful message if it's an access error */}
+          {accessError ? (
+            <Alert variant="info">
+              <h4>Trip Access Restricted</h4>
+              <p>You have been invited to this trip, but you haven't accepted the invitation yet.</p>
+              <p>Please check your <strong>Notifications (Bell Icon)</strong> to accept.</p>
+            </Alert>
+          ) : (
+            <Alert variant="warning">Could not find the trip details.</Alert>
+          )}
           <Button variant="secondary" onClick={goBack}>Go Back</Button>
         </div>
       </Layout>
     );
   }
 
-  // 4. Render the main page content
- return (
+  // 5. Render the main page content
+  return (
     <Layout>
       <Container fluid>
         <h1 className="h3 mb-4 text-gray-800">Welcome to {trip.title || 'Your Trip'}</h1>
@@ -110,21 +122,26 @@ export default function TripDetailsPage() {
           <>
             <Row>
               <Col lg={8}>
-                {/* === USE OUR NEW COMPONENTS === */}
                 <TripDetailsBox trip={trip} saveTripDetails={saveTripDetails} />
+                
                 <TripItineraryBox
                   events={events}
-                  fetchError={false} // You can pass fetchError here
+                  fetchError={false}
                   canAddEvents={tripLooksLikeServerId(trip)}
                   onAddEventClick={() => setShowAddModal(true)}
-                  onEditEventClick={openEditModal} // Pass edit handler
-                  deleteEvent={deleteEvent} // Pass delete handler
+                  onEditEventClick={openEditModal}
+                  deleteEvent={deleteEvent}
+                  isOrganizer={isOrganizer}
+ 
                 />
               </Col>
               <Col lg={4}>
                 <TripBudgetBox trip={trip} />
                 <TripMapBox trip={trip} events={events} />
-                <TripMembersBox trip={trip} />
+                <TripMembersBox 
+                  trip={trip} 
+                  currentUser={user} // <-- Passing the safely parsed user
+                />
               </Col>
             </Row>
 
@@ -134,13 +151,17 @@ export default function TripDetailsPage() {
             {/* Bottom Buttons */}
             <div className="d-flex justify-content-between mt-4">
               <Button variant="secondary" onClick={goBack}>Go Back</Button>
-              <Button variant="danger" onClick={handleDelete}>Delete Trip</Button>
+              
+              {/* Only show Delete Trip if user is Organizer */}
+              {isOrganizer && (
+                <Button variant="danger" onClick={deleteTrip}>Delete Trip</Button>
+              )}
             </div>
           </>
         )}
       </Container>
 
-      {/* "Add Event" Modal (existing) */}
+      {/* "Add Event" Modal */}
       <TripDetailsModal
         show={showAddModal}
         onClose={() => {
@@ -151,6 +172,7 @@ export default function TripDetailsPage() {
         deleteEvent={deleteEvent} 
       />
 
+      {/* "Edit Event" Modal */}
       <EditEventModal
         show={!!eventToEdit}
         onClose={closeEditModal}

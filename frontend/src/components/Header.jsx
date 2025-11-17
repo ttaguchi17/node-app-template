@@ -1,21 +1,20 @@
 // src/components/Header.jsx
 import React from 'react';
-import { Navbar, Nav, Button } from 'react-bootstrap'; // Import React-Bootstrap components
+import { Navbar, Nav, Button } from 'react-bootstrap'; 
+import NotificationsBell from './NotificationsBell.jsx'; // Ensure this path is correct
 
-// Accept functions as props from the parent (Layout.jsx)
-function Header({ onToggleSidebar, onNewTripClick, onRefreshClick, onLogoutClick }) {
+// 1. ADD 'user' to the props list
+function Header({ onToggleSidebar, onNewTripClick, onRefreshClick, onLogoutClick, user }) {
   return (
-    // Use <Navbar> component. Apply Bootstrap props (bg, expand) and
-    // our own custom class names from the old HTML.
     <Navbar bg="white" expand className="topbar mb-4 static-top shadow">
       
       {/* Mobile Sidebar Toggle Button */}
       <Button 
-        variant="link" // 'variant="link"' makes it look like a link
-        className="d-md-none rounded-circle me-3" // 'd-md-none' hides it on desktop
-        onClick={onToggleSidebar} // Use the prop for the click handler
+        variant="link" 
+        className="d-md-none rounded-circle me-3" 
+        onClick={onToggleSidebar} 
       >
-        <i className="fa fa-bars"></i> {/* Font Awesome icon */}
+        <i className="fa fa-bars"></i>
       </Button>
 
       {/* Page Title */}
@@ -24,22 +23,33 @@ function Header({ onToggleSidebar, onNewTripClick, onRefreshClick, onLogoutClick
       </Navbar.Brand>
 
       {/* Nav container. 'ms-auto' pushes it to the right. */}
-      <Nav className="ms-auto">
+      <Nav className="ms-auto align-items-center">
+        
+        {/* --- NOTIFICATIONS BELL --- */}
+        {/* Only show if user is logged in (token exists or user object is present) */}
+        <Nav.Item className="mx-1">
+             <NotificationsBell />
+        </Nav.Item>
+        {/* -------------------------- */}
+
         <Nav.Item className="mx-1">
           <Button variant="primary" size="sm" onClick={onRefreshClick}>
             <i className="fas fa-sync-alt me-1"></i> Refresh
           </Button>
         </Nav.Item>
+
         <Nav.Item className="mx-1">
           <Button variant="success" size="sm" onClick={onNewTripClick}>
             <i className="fas fa-plus me-1"></i> New Trip
           </Button>
         </Nav.Item>
+
         <Nav.Item className="mx-1">
           <Button variant="danger" size="sm" onClick={onLogoutClick}>
             <i className="fas fa-sign-out-alt me-1"></i> Log Out
           </Button>
         </Nav.Item>
+
       </Nav>
     </Navbar>
   );
