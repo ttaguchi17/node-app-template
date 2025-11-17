@@ -1,8 +1,9 @@
 // src/hooks/useTripDetails.js
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
 
-// --- Helper Functions (Copied from TripDetailsPage) ---
+import { useNavigate } from 'react-router-dom';
+
+// --- Helper Functions ---
 const PREVIEWS_KEY = 'tripPreviews';
 
 const buildAuthHeader = (raw) => {
@@ -66,15 +67,8 @@ function extractDates(serverTrip = {}) {
 
 function extractLocation(serverTrip = {}) {
   if (!serverTrip) return '';
-
-  if (serverTrip.location_display_name) {
-    return serverTrip.location_display_name;
-  }
-
-  if (serverTrip.location_input) {
-    return serverTrip.location_input;
-  }
-
+  if (serverTrip.location_display_name) return serverTrip.location_display_name;
+  if (serverTrip.location_input) return serverTrip.location_input;
   return (
     serverTrip.location ??
     serverTrip.destination ??
@@ -88,7 +82,7 @@ function extractLocation(serverTrip = {}) {
   );
 }
 
-// This is our new hook
+// --- Main Hook ---
 export function useTripDetails(tripId) {
   const navigate = useNavigate();
   const [trip, setTrip] = useState(null);
@@ -97,48 +91,46 @@ export function useTripDetails(tripId) {
   const [fetchError, setFetchError] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [accessError, setAccessError] = useState(false);
 
-  // Helper to check if trip id looks like a server id
   const tripLooksLikeServerId = (t) => {
     if (!t) return false;
     const id = String(t.trip_id ?? t.id ?? '');
     return /^\d+$/.test(id);
   };
 
-  // --- All Data Functions ---
+  // --- Fetch Events ---
+const fetchEvents = useCallback(async (serverTripId) => {
+  if (!serverTripId) return;
+  const token = localStorage.getItem('token');
+  const auth = buildAuthHeader(token);
 
-  // Function to Fetch Events
-  const fetchEvents = async (serverTripId) => {
-    if (!serverTripId) return;
-    const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token);
-    try {
-      const res = await fetch(`/api/trips/${encodeURIComponent(serverTripId)}/events`, { headers: auth ? { Authorization: auth } : undefined });
-      if (!res.ok) throw new Error(`Could not fetch events (status ${res.status})`);
-      const body = await res.json();
-      const list = Array.isArray(body) ? body : Array.isArray(body.events) ? body.events : [];
-      setEvents(list);
-      setFetchError(false); // Clear any previous fetch errors
-    } catch (err) {
-      console.warn('fetchEvents', err);
-      setFetchError(true); // Set fetch error for events
-      setEvents([]);
-    }
-  };
+  try {
+    const res = await fetch(`/api/trips/${encodeURIComponent(serverTripId)}/events`, {
+      headers: auth ? { Authorization: auth } : undefined
+    });
 
+    if (!res.ok) throw new Error(`Could not fetch events (status ${res.status})`);
 
-  
-const deleteEvent = async (eventId) => {
-    if (!trip) return; // Make sure we have a trip
+    const body = await res.json();
+    const list = Array.isArray(body) ? body : Array.isArray(body.events) ? body.events : [];
+    setEvents(list);
+    setFetchError(false);
+  } catch (err) {
+    console.warn('fetchEvents', err);
+    setFetchError(true);
+    setEvents([]);
+  }
+}, []);
 
-    // Ask for confirmation
-    if (!window.confirm('Are you sure you want to delete this event?')) {
-      return;
-    }
+  // --- Delete Event ---
+  const deleteEvent = async (eventId) => {
+    if (!trip) return; 
+    if (!window.confirm('Are you sure you want to delete this event?')) return;
 
     const currentTripId = trip.trip_id ?? trip.id;
     const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token); // Use your existing helper
+    const auth = buildAuthHeader(token); 
 
     try {
       const res = await fetch(`/api/trips/${currentTripId}/events/${eventId}`, {
@@ -150,19 +142,13 @@ const deleteEvent = async (eventId) => {
         const data = await res.json();
         throw new Error(data.message || 'Failed to delete event.');
       }
-
-      // Success! Remove the event from our local state (the UI)
-     setEvents(prevEvents => prevEvents.filter(event => 
-  (event.event_id ?? event.id) !== eventId
-));
+      setEvents(prevEvents => prevEvents.filter(event => (event.event_id ?? event.id) !== eventId));
     } catch (err) {
       console.error('deleteEvent error:', err);
-      // You could set an error message here
-      // setFetchError(err.message); 
     }
   };
 
-  // Function to Create Trip on Server
+  // --- Create Trip ---
   const createTripOnServer = async () => {
     if (!trip) return;
     setCreateError('');
@@ -176,21 +162,13 @@ const deleteEvent = async (eventId) => {
         name: trip.title,
         start_date: trip.start_date ?? trip.dates ?? undefined,
         ...(trip.end_date ? { end_date: trip.end_date } : {}),
-        ...(trip.location ? { location_input: trip.location } : {}) // backend expects location_input
+        ...(trip.location ? { location_input: trip.location } : {}) 
       };
 
-      const res = await fetch('/api/trips', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-
+      const res = await fetch('/api/trips', { method: 'POST', headers, body: JSON.stringify(payload) });
       if (!res.ok) {
         let msg = `Create failed (status ${res.status})`;
-        try {
-          const body = await res.json();
-          if (body?.message) msg = body.message;
-        } catch (e) {}
+        try { const body = await res.json(); if (body?.message) msg = body.message; } catch (e) {}
         throw new Error(msg);
       }
 
@@ -208,13 +186,13 @@ const deleteEvent = async (eventId) => {
         end_date: createdEnd ?? serverTrip.end_date ?? trip.end_date ?? null,
         location: createdLocation ?? serverTrip.location ?? trip.location ?? '',
         notes: serverTrip.notes ?? serverTrip.description ?? trip.notes,
+        
+        // !!! FORCE ORGANIZER ROLE ON CREATION !!!
+        my_role: 'organizer', 
+        
         latitude: serverTrip.latitude,
-          longitude: serverTrip.longitude,
-          bbox_sw_lat: serverTrip.bbox_sw_lat,
-          bbox_sw_lon: serverTrip.bbox_sw_lon,
-          bbox_ne_lat: serverTrip.bbox_ne_lat,
-          bbox_ne_lon: serverTrip.bbox_ne_lon
-        };
+        longitude: serverTrip.longitude,
+      };
 
       try {
         const raw = localStorage.getItem(PREVIEWS_KEY);
@@ -228,7 +206,7 @@ const deleteEvent = async (eventId) => {
       setTrip(normalized);
       setIsCreating(false);
       setCreateError('');
-      await fetchEvents(normalized.trip_id); // Fetch events for the new trip
+      await fetchEvents(normalized.trip_id); 
     } catch (err) {
       console.error('createTripOnServer error', err);
       setCreateError(err.message || 'Failed to create trip on server.');
@@ -236,37 +214,25 @@ const deleteEvent = async (eventId) => {
     }
   };
 
-  // Function to Save Location
+  // --- Save Details ---
   const saveTripDetails = async (details) => {
     if (!trip) return { success: false, message: 'No trip loaded.' };
-
     const isPreview = !tripLooksLikeServerId(trip);
 
-    // 1. Handle Local Preview
     if (isPreview) {
       try {
-        // We can update any part of the preview now
         upsertLocalPreview(trip.id, details);
         setTrip(prev => ({ ...prev, ...details }));
         return { success: true, message: 'Saved locally.' };
-      } catch (e) {
-        return { success: false, message: 'Failed to save locally.' };
-      }
+      } catch (e) { return { success: false, message: 'Failed to save locally.' }; }
     }
     
-    // 2. Handle Server Trip
     const id = encodeURIComponent(trip.trip_id ?? trip.id);
     const token = localStorage.getItem('token');
     const auth = buildAuthHeader(token);
 
     try {
-      // Transform frontend field names to the backend's expected names
-      const payload = {
-        ...details,
-        // Transform location to location_input as expected by backend
-        ...(details.location && { location_input: details.location })
-      };
-
+      const payload = { ...details, ...(details.location && { location_input: details.location }) };
       const res = await fetch(`/api/trips/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) },
@@ -274,13 +240,8 @@ const deleteEvent = async (eventId) => {
       });
 
       if (res.ok) {
-        let updated = null;
-        try { updated = await res.json(); } catch (e) {}
-
         const updatedState = { ...details };
-        if (details.name) {
-          updatedState.title = details.name;
-        }
+        if (details.name) updatedState.title = details.name;
         setTrip(prev => ({ ...prev, ...updatedState }));
         return { success: true, message: 'Trip details saved.' };
       } else {
@@ -293,128 +254,118 @@ const deleteEvent = async (eventId) => {
     }
   };
 
-// --- ADD THIS NEW FUNCTION ---
+  // --- Delete Trip ---
   const deleteTrip = async () => {
-    if (!trip) return; // No trip loaded to delete
-
-    // Confirm with the user
-    if (!window.confirm('Are you sure you want to delete this trip and all its data? This cannot be undone.')) {
-      return;
-    }
+    if (!trip) return; 
+    if (!window.confirm('Are you sure you want to delete this trip and all its data? This cannot be undone.')) return;
 
     const tripIdToDelete = trip.trip_id ?? trip.id;
     const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token); // Use your existing helper
+    const auth = buildAuthHeader(token); 
 
     try {
       const response = await fetch(`/api/trips/${tripIdToDelete}`, {
         method: 'DELETE',
         headers: auth ? { Authorization: auth } : undefined
       });
-
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || 'Failed to delete trip.');
       }
-
-      // Success! Navigate back to the dashboard.
       navigate('/dashboard');
-
     } catch (err) {
       console.error('deleteTrip error:', err);
-      // Show an error on the page
-      setCreateError(err.message); // We can re-use the createError state for this
+      setCreateError(err.message); 
     }
   };
 
-  // --- Main Loading useEffect ---
-  useEffect(() => {
-    let cancelled = false;
+useEffect(() => {
+  let isMounted = true;
 
-    async function load() {
-      setLoading(true);
-      setFetchError(false);
-      setEvents([]);
-      
-      try {
-        // This is the authentication fix:
-        const token = localStorage.getItem('token');
-        const auth = buildAuthHeader(token);
-        
-        const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}`, { 
-          headers: auth ? { Authorization: auth } : undefined 
-        });
+  const load = async () => {
+    setLoading(true);
+    setFetchError(false);
+    setAccessError(false);
+    setEvents([]);
 
-        if (!res.ok) {
-          if (res.status === 401 || res.status === 403) { 
-            localStorage.removeItem('token'); 
-            navigate('/login'); 
-            return; 
-          }
-          throw new Error(`Server returned ${res.status}`);
+    try {
+      const token = localStorage.getItem('token');
+      const auth = buildAuthHeader(token);
+      const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}`, {
+        headers: auth ? { Authorization: auth } : undefined
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem('token');
+          navigate('/login');
+          return;
         }
-
-        const json = await res.json();
-        if (cancelled) return;
-        
-        const serverTrip = json.trip || json || {};
-        const { start_date, end_date } = extractDates(serverTrip);
-        const location = extractLocation(serverTrip);
-
-        const normalized = {
-          id: serverTrip.id ?? serverTrip.trip_id ?? serverTrip.tripId ?? tripId,
-          trip_id: serverTrip.trip_id ?? serverTrip.id ?? serverTrip.tripId ?? tripId,
-          title: serverTrip.title ?? serverTrip.name ?? serverTrip.trip_name ?? '',
-          dates: serverTrip.dates ?? serverTrip.date_range ?? start_date ?? '',
-          start_date: start_date ?? null,
-          end_date: end_date ?? null,
-          location: location ?? '',
-          notes: serverTrip.notes ?? serverTrip.description ?? '',
-          latitude: serverTrip.latitude,
-          longitude: serverTrip.longitude,
-          bbox_sw_lat: serverTrip.bbox_sw_lat,
-          bbox_sw_lon: serverTrip.bbox_sw_lon,
-          bbox_ne_lat: serverTrip.bbox_ne_lat,
-          bbox_ne_lon: serverTrip.bbox_ne_lon
-        };
-
-        setTrip(normalized);
-        await fetchEvents(normalized.trip_id); // Fetch events
-        setLoading(false);
-        return;
-
-      } catch (err) {
-        console.info('Could not fetch trip from API, falling back to localPreview', err);
-        setFetchError(true);
+        if (res.status === 404) setAccessError(true);
+        throw new Error(`Server returned ${res.status}`);
       }
 
-      // Fallback to local preview
+      const json = await res.json();
+      if (!isMounted) return;
+
+      const serverTrip = json.trip || json || {};
+      const { start_date, end_date } = extractDates(serverTrip);
+      const location = extractLocation(serverTrip);
+
+      const normalized = {
+        id: serverTrip.id ?? serverTrip.trip_id ?? String(serverTrip.id ?? serverTrip.trip_id),
+        trip_id: serverTrip.trip_id ?? serverTrip.id ?? String(serverTrip.id ?? serverTrip.trip_id),
+        my_role: serverTrip.my_role,
+        title: serverTrip.title ?? serverTrip.name ?? serverTrip.trip_name ?? '',
+        dates: serverTrip.dates ?? serverTrip.date_range ?? start_date ?? '',
+        start_date: start_date ?? null,
+        end_date: end_date ?? null,
+        location: location ?? '',
+        notes: serverTrip.notes ?? serverTrip.description ?? '',
+        latitude: serverTrip.latitude,
+        longitude: serverTrip.longitude,
+        bbox_sw_lat: serverTrip.bbox_sw_lat,
+        bbox_sw_lon: serverTrip.bbox_sw_lon,
+        bbox_ne_lat: serverTrip.bbox_ne_lat,
+        bbox_ne_lon: serverTrip.bbox_ne_lon
+      };
+
+      setTrip(normalized);
+      await fetchEvents(normalized.trip_id);
+      if (isMounted) setLoading(false);
+    } catch (err) {
+      console.info('Could not fetch trip from API, falling back to localPreview', err);
+      if (!accessError && isMounted) setFetchError(true);
+
       const preview = fetchTripPreviewFromLocal(tripId);
-      if (preview && !cancelled) {
-        const local = {
-          id: preview.id,
-          trip_id: preview.id,
-          title: preview.title || preview.name || 'Untitled Trip',
-          dates: preview.dates || '',
-          start_date: preview.start_date ?? null,
-          end_date: preview.end_date ?? null,
-          location: preview.location ?? preview.destination ?? preview.place ?? '',
-          notes: preview.notes ?? ''
-        };
-        setTrip(local);
-        setEvents([]); // Local previews don't have events
-      } else if (!cancelled) {
-        setTrip(null);
+      if (isMounted) {
+        if (preview) {
+          const local = {
+            id: preview.id,
+            trip_id: preview.id,
+            title: preview.title || preview.name || 'Untitled Trip',
+            dates: preview.dates || '',
+            start_date: preview.start_date ?? null,
+            end_date: preview.end_date ?? null,
+            location: preview.location ?? preview.destination ?? preview.place ?? '',
+            notes: preview.notes ?? '',
+            my_role: 'organizer'
+          };
+          setTrip(local);
+          setEvents([]);
+        } else {
+          setTrip(null);
+        }
+        setLoading(false);
       }
-
-      if (!cancelled) setLoading(false);
     }
+  };
 
-    load();
-    return () => { cancelled = true; };
-  }, [tripId, navigate]);
+  load();
+  return () => { isMounted = false; };
+}, [tripId, fetchEvents]);
 
-  // --- Return all the state and functions ---
+
   return {
     trip,
     events,
@@ -427,6 +378,7 @@ const deleteEvent = async (eventId) => {
     saveTripDetails,
     fetchEvents,
     deleteTrip,
-    deleteEvent
+    deleteEvent,
+    accessError
   };
 }

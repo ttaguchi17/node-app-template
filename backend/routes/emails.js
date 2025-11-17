@@ -50,9 +50,7 @@ router.post('/trips/:tripId/bookings', authenticateToken, async (req, res) => {
   try {
     // Verify user is member of trip
     const [membership] = await connection.execute(
-      `SELECT tm.role FROM trip_membership tm
-       JOIN user u ON tm.user_id = u.user_id
-       WHERE u.user_id = ? AND tm.trip_id = ?`,
+      "SELECT tm.role FROM trip_membership tm\nJOIN `user` u ON tm.user_id = u.user_id\nWHERE u.user_id = ? AND tm.trip_id = ?",
       [userId, tripId]
     );
 

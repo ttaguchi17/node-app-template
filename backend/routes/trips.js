@@ -5,6 +5,7 @@ const authenticateToken = require('../middleware/auth');
 const geocodeLocation = require('../services/geocoding');
 const pool = require('../config/database');
 
+<<<<<<< HEAD
 console.log("\n" + "=".repeat(50));
 console.log("   SUCCESSFULLY LOADED NEW trips.js   ");
 console.log("=".repeat(50) + "\n");
@@ -13,16 +14,38 @@ console.log("=".repeat(50) + "\n");
  * GET /api/trips
  * Return trips for authenticated user (via trip_membership)
  */
+=======
+// --- Import the sub-routers ---
+const eventsRouter = require('./events');
+const membersRouter = require('./members');
+
+console.log("\n" + "="*50);
+console.log("   SUCCESSFULLY LOADED NEW trips.js (v8 - Fixed)   ");
+console.log("="*50 + "\n");
+
+// --- Tell Express to use the sub-routers ---
+router.use('/:tripId/events', eventsRouter); 
+router.use('/:tripId/members', membersRouter);
+
+
+// Get all trips for user
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const [trips] = await pool.execute(
       `SELECT t.* FROM trip t
+<<<<<<< HEAD
        JOIN trip_membership tm ON t.trip_id = tm.trip_id
        JOIN user u ON tm.user_id = u.user_id
        WHERE u.email = ?`,
       [req.user.email]
+=======
+         JOIN trip_membership tm ON t.trip_id = tm.trip_id
+       WHERE tm.user_id = ? 
+       AND tm.status IN ('accepted', 'organizer', 'owner', 'admin')`,
+      [req.user.user_id]
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     );
-
     res.status(200).json(trips);
   } catch (error) {
     console.error('GET /api/trips error', error && error.stack ? error.stack : error);
@@ -36,6 +59,7 @@ router.get('/', authenticateToken, async (req, res) => {
  */
 router.get('/:tripId', authenticateToken, async (req, res) => {
   const { tripId } = req.params;
+<<<<<<< HEAD
   try {
     const [rows] = await pool.execute(
       `SELECT t.* FROM trip t
@@ -43,9 +67,31 @@ router.get('/:tripId', authenticateToken, async (req, res) => {
        JOIN user u ON tm.user_id = u.user_id
        WHERE u.email = ? AND t.trip_id = ?`,
       [req.user.email, tripId]
+=======
+  const userId = req.user.user_id;
+
+  console.log(`🔍 [DEBUG GET TRIP] Looking for Trip: ${tripId}, User: ${userId}`);
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT t.*, tm.role as my_role, tm.status as my_status FROM trip t
+         JOIN trip_membership tm ON t.trip_id = tm.trip_id
+       WHERE tm.user_id = ? AND t.trip_id = ? 
+       AND tm.status IN ('accepted', 'organizer', 'owner', 'admin')`,
+      [userId, tripId]
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     );
+    
+    console.log(`🔍 [DEBUG GET TRIP] Rows found: ${rows.length}`);
 
     if (rows.length === 0) {
+      // Let's see WHY it failed. Does the membership exist at all?
+      const [check] = await pool.execute(
+          `SELECT * FROM trip_membership WHERE user_id = ? AND trip_id = ?`, 
+          [userId, tripId]
+      );
+      console.log(`🔍 [DEBUG GET TRIP] Membership check:`, check[0] || "No membership found");
+      
       return res.status(404).json({ message: 'Trip not found or access denied.' });
     }
 
@@ -62,45 +108,71 @@ router.get('/:tripId', authenticateToken, async (req, res) => {
  */
 router.post('/', authenticateToken, async (req, res) => {
   const { name, start_date, end_date, location_input } = req.body;
+  const { user_id } = req.user; // Use user_id from token
 
+<<<<<<< HEAD
   if (!name) return res.status(400).json({ message: 'Trip name is required.' });
   if (!location_input) return res.status(400).json({ message: 'Trip location is required.' });
 
+=======
+  if (!name) {
+    return res.status(400).json({ message: 'Trip name is required.' });
+  }
+  if (!location_input) {
+    return res.status(400).json({ message: 'Trip location is required.' });
+  }
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
   let insertData = {
     name,
     start_date: start_date || null,
     end_date: end_date || null,
     location_input,
   };
+<<<<<<< HEAD
 
   const geoResult = await geocodeLocation(location_input).catch(() => null);
   if (geoResult) Object.assign(insertData, geoResult);
 
+=======
+  const geoResult = await geocodeLocation(location_input);
+  if (geoResult) {
+    Object.assign(insertData, geoResult);
+  }
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-
     const fields = Object.keys(insertData);
     const placeholders = fields.map(() => '?').join(', ');
     const values = Object.values(insertData);
-
     const [tripResult] = await connection.execute(
       `INSERT INTO trip (${fields.join(', ')}) VALUES (${placeholders})`,
       values
     );
-
     const newTripId = tripResult.insertId;
+<<<<<<< HEAD
 
     // Add creator as owner with accepted status
     await connection.execute(
       `INSERT INTO trip_membership (user_id, trip_id, role, status, invited_at)
        VALUES (?, ?, ?, 'accepted', NOW())`,
       [req.user.user_id, newTripId, 'owner']
+=======
+    await connection.execute(
+      'INSERT INTO trip_membership (user_id, trip_id, role, status, invited_at) VALUES (?, ?, ?, \'accepted\', NOW())',
+      [user_id, newTripId, 'organizer'] // Use user_id
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     );
-
     await connection.commit();
+<<<<<<< HEAD
 
     res.status(201).json({ trip_id: newTripId, ...insertData });
+=======
+    res.status(201).json({
+      trip_id: newTripId,
+      ...insertData 
+    });
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
   } catch (error) {
     await connection.rollback();
     console.error('POST /api/trips error', error && error.stack ? error.stack : error);
@@ -117,9 +189,9 @@ router.post('/', authenticateToken, async (req, res) => {
 router.patch('/:tripId', authenticateToken, async (req, res) => {
   const { tripId } = req.params;
   const { name, start_date, end_date, location_input } = req.body;
-
   const updateFields = [];
   const values = [];
+<<<<<<< HEAD
 
   if (name !== undefined) { updateFields.push('name = ?'); values.push(name); }
   if (start_date !== undefined) { updateFields.push('start_date = ?'); values.push(start_date); }
@@ -130,30 +202,58 @@ router.patch('/:tripId', authenticateToken, async (req, res) => {
     values.push(location_input);
 
     const geoResult = await geocodeLocation(location_input).catch(() => null);
+=======
+  if (name !== undefined) {
+    updateFields.push('name = ?');
+    values.push(name);
+  }
+  if (start_date !== undefined) {
+    updateFields.push('start_date = ?');
+    values.push(start_date);
+  }
+  if (end_date !== undefined) {
+    updateFields.push('end_date = ?');
+    values.push(end_date);
+  }
+  if (location_input !== undefined) {
+    updateFields.push('location_input = ?');
+    values.push(location_input);
+    const geoResult = await geocodeLocation(location_input);
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     if (geoResult) {
       updateFields.push('location_display_name = ?'); values.push(geoResult.location_display_name);
       updateFields.push('latitude = ?'); values.push(geoResult.latitude);
       updateFields.push('longitude = ?'); values.push(geoResult.longitude);
     }
   }
+<<<<<<< HEAD
 
   if (updateFields.length === 0) return res.status(400).json({ message: 'No fields to update.' });
 
+=======
+  if (updateFields.length === 0) {
+    return res.status(400).json({ message: 'No fields to update.' });
+  }
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
   values.push(tripId);
-  values.push(req.user.email);
-
+  values.push(req.user.user_id); // <-- FIXED: Use user_id
   try {
     const [result] = await pool.execute(
       `UPDATE trip t
-       JOIN trip_membership tm ON t.trip_id = tm.trip_id
-       JOIN user u ON tm.user_id = u.user_id
-       SET ${updateFields.join(', ')}
-       WHERE t.trip_id = ? AND u.email = ?`,
+         JOIN trip_membership tm ON t.trip_id = tm.trip_id
+       WHERE t.trip_id = ? AND tm.user_id = ?
+         SET ${updateFields.join(', ')}`, // <-- Fixed: SET clause at end
       values
     );
+<<<<<<< HEAD
 
     if (result.affectedRows === 0) return res.status(404).json({ message: 'Trip not found or access denied.' });
 
+=======
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Trip not found or access denied.' });
+    }
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     res.status(200).json({ message: 'Trip updated successfully!', updatedFields: req.body });
   } catch (error) {
     console.error('PATCH /api/trips/:tripId error', error && error.stack ? error.stack : error);
@@ -167,17 +267,20 @@ router.patch('/:tripId', authenticateToken, async (req, res) => {
  */
 router.delete('/:tripId', authenticateToken, async (req, res) => {
   const { tripId } = req.params;
+  const { user_id } = req.user; // <-- FIXED: Use user_id
   const connection = await pool.getConnection();
-
   try {
     await connection.beginTransaction();
+<<<<<<< HEAD
 
+=======
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     const [membership] = await connection.execute(
       `SELECT tm.role FROM trip_membership tm
-       JOIN user u ON tm.user_id = u.user_id
-       WHERE u.email = ? AND tm.trip_id = ?`,
-      [req.user.email, tripId]
+       WHERE tm.user_id = ? AND tm.trip_id = ?`,
+      [user_id, tripId] // <-- Fixed
     );
+<<<<<<< HEAD
 
     if (membership.length === 0 || !['owner','organizer','admin'].includes(String(membership[0].role))) {
       await connection.rollback();
@@ -185,14 +288,24 @@ router.delete('/:tripId', authenticateToken, async (req, res) => {
     }
 
     // delete related rows
+=======
+    if (membership.length === 0 || membership[0].role !== 'organizer') {
+      return res.status(403).json({ message: 'Access denied. Only organizer can delete.' });
+    }
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     await connection.execute('DELETE FROM itinerary_event WHERE trip_id = ?', [tripId]);
     await connection.execute('DELETE FROM trip_membership WHERE trip_id = ?', [tripId]);
     const [result] = await connection.execute('DELETE FROM trip WHERE trip_id = ?', [tripId]);
-
     await connection.commit();
+<<<<<<< HEAD
 
     if (result.affectedRows === 0) return res.status(404).json({ message: 'Trip not found.' });
 
+=======
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Trip not found.' });
+    }
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255
     res.status(200).json({ message: 'Trip and all associated data deleted successfully.' });
   } catch (error) {
     await connection.rollback();
@@ -203,6 +316,7 @@ router.delete('/:tripId', authenticateToken, async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 /**
  * GET /api/trips/:tripId/members
  * Returns normalized membership rows.
@@ -577,3 +691,6 @@ router.post('/:tripId/events', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+=======
+module.exports = router;
+>>>>>>> 032d81a87afbfe3d59f994bc6318df99ff259255

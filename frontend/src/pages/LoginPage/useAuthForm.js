@@ -31,6 +31,7 @@ export function useAuthForm() {
       }
 
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
       navigate('/'); // Redirect to dashboard
     } catch (err) {
       setError(err.message);
