@@ -5,27 +5,31 @@ import LoginPage from './pages/LoginPage/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage/DashboardPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
-// 1. ADD THIS IMPORT
+import LandingPage from './pages/LandingPage.jsx';
 import TripDetailsPage from './pages/TripDetailsPage/TripDetailsPage.jsx';
 
 function App() {
-  return (
-    <Routes>
-      {/* === Public Routes === */}
-      <Route path="/login" element={<LoginPage />} />
+    return (
+    <>
+      {/* Keep your Toast component here */}
+      {/* ... */}
 
-      {/* === Protected Routes === */}
-      <Route element={<ProtectedRoute />}>
-        {/* If a user is logged in, they can access these: */}
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        {/* 2. ADD THIS ROUTE */}
-        <Route path="/trips/:tripId" element={<TripDetailsPage />} />
-      </Route>
+      <Routes>
+        {/* === Public Routes === */}
+        <Route path="/" element={<LandingPage />} /> 
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* === 404 Catch-all Route === */}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        {/* === Protected Routes === */}
+        <Route element={<ProtectedRoute />}>
+          {/* Dashboard is now explicitly at /dashboard */}
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/trips/:tripId" element={<TripDetailsPage />} />
+        </Route>
+
+        {/* === 404 Catch-all Route === */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </>
   );
 }
 

@@ -1,4 +1,3 @@
-// src/pages/LoginPage/hooks/useAuthForm.js
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -6,8 +5,8 @@ export function useAuthForm() {
   // --- State ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');      // For error messages
-  const [message, setMessage] = useState('');  // For success messages
+  const [error, setError] = useState('');      
+  const [message, setMessage] = useState('');  
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
@@ -20,19 +19,27 @@ export function useAuthForm() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/login', { // Use relative URL
+      // NOTE: If you haven't set up a proxy in package.json/vite.config, 
+      // you might need 'http://localhost:3000/api/auth/login' here.
+      const response = await fetch('/api/auth/login', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+      
       const data = await response.json();
+      
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
 
+      // 1. Save Token
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/'); // Redirect to dashboard
+
+      // 2. === FIXED: Redirect to Dashboard ===
+      navigate('/dashboard'); 
+      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -48,16 +55,15 @@ export function useAuthForm() {
     setMessage('');
 
     try {
-      // Call the create-account endpoint
-      const response = await fetch('/api/auth/create-account', { // Use relative URL
+      const response = await fetch('/api/auth/create-account', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
+      
       if (!response.ok) {
-        // Handle errors (like "email already exists")
         throw new Error(data.message || 'Sign-up failed');
       }
 
@@ -72,7 +78,6 @@ export function useAuthForm() {
     }
   };
   
-  // --- Helper function to clear state when switching tabs ---
   const switchTab = (tab) => {
     setEmail('');
     setPassword('');
@@ -81,18 +86,13 @@ export function useAuthForm() {
     setActiveTab(tab);
   };
 
-  // --- Return the "Control Panel" ---
   return {
-    email,
-    setEmail,
-    password,
-    setPassword,
-    error,
-    message,
+    email, setEmail,
+    password, setPassword,
+    error, message,
     isLoading,
     activeTab,
-    handleLogin,
-    handleSignUp,
+    handleLogin, handleSignUp,
     switchTab
   };
 }

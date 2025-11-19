@@ -470,3 +470,76 @@ body {
   color: var(--bs-primary);
   font-weight: 600;
 }
+
+/* --- Add to src/custom-styles.css --- */
+
+/* 1. Hero Animations */
+.landing-hero {
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 50%, #06b6d4 100%);
+  position: relative;
+  overflow: hidden;
+  color: white; /* This turns the text white */
+}
+
+/* The floating animation for the image */
+.hero-floating-img {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+  100% { transform: translateY(0px); }
+}
+
+/* 2. Section Styling */
+.section-title {
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+/* 3. How It Works Steps */
+.step-card {
+  position: relative;
+  z-index: 1;
+  padding: 2rem;
+  height: 100%;
+  border-radius: 20px;
+  background: white;
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.step-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  border-color: var(--bs-primary);
+}
+
+.step-number {
+  font-size: 4rem;
+  font-weight: 900;
+  color: rgba(59, 130, 246, 0.1);
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  line-height: 1;
+}
+
+/* 4. CTA Section */
+.cta-section {
+  background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
