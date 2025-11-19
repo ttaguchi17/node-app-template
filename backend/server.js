@@ -19,7 +19,13 @@ app.use(cookieParser());
 console.log(`\nStarting backend server (env: ${process.env.NODE_ENV || 'development'})`);
 console.log(`Listening on http://localhost:${port}\n`);
 
+<<<<<<< Updated upstream
 // Helper to mount optional routers without crashing server if file missing / has errors
+=======
+// --- Mount primary routes ---
+// Use try/catch so a missing/buggy route file doesn't crash the whole server.
+// Each mounted route logs success or a warning on failure.
+>>>>>>> Stashed changes
 function tryMount(mountPath, modulePath) {
   try {
     const router = require(modulePath);
@@ -30,12 +36,28 @@ function tryMount(mountPath, modulePath) {
   }
 }
 
+<<<<<<< Updated upstream
 // --- Mount API routes ---
 tryMount('/api/auth', './routes/auth');
 tryMount('/api/trips', './routes/trips');
 tryMount('/api/gmail', './routes/gmail');
 tryMount('/api/users', './routes/users');
 tryMount('/api/notifications', './routes/notifications');
+=======
+// Core routes (safe mounts)
+tryMount('/api/auth', './routes/auth');           // optional/auth
+tryMount('/api/trips', './routes/trips');         // trip CRUD + children (events/members) if present
+
+// If you split invitations into its own file, also mount it under /api/trips so routes like
+// '/:tripId/invitations' still map to '/api/trips/:tripId/invitations'
+tryMount('/api/trips', './routes/invitations');   // optional/invitations (may overlap - it's okay)
+
+tryMount('/api/gmail', './routes/gmail');
+tryMount('/api/users', './routes/users');
+tryMount('/api/notifications', './routes/notifications');
+
+// Other optional endpoints (mount if present)
+>>>>>>> Stashed changes
 tryMount('/api/events', './routes/events');
 tryMount('/api/emails', './routes/emails');
 

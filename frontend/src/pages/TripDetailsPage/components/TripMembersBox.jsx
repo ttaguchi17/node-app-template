@@ -251,8 +251,12 @@ export default function TripMembersBox({ trip, currentUser }) {
     const payload = { invited_user_ids, message, role: 'member' };
 
     try {
+<<<<<<< Updated upstream
       // NOTE: backend uses /api/trips/:tripId/invitations (not /members/invitations)
       const res = await fetch(`/api/trips/${tripId}/invitations`, {
+=======
+      const res = await fetch(`/api/trips/${tripId}/members/invitations`, {
+>>>>>>> Stashed changes
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(payload),
