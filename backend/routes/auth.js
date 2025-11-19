@@ -4,16 +4,24 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
-const authenticateToken = require('../middleware/auth'); 
+const rateLimit = require('express-rate-limit');
+const validator = require('validator');
 
-// ====================
-// AUTH ROUTES (Login/Register)
-// ====================
+// --- Rate limiter to prevent brute-force attacks ---
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  message: { message: 'Too many login attempts. Please try again later.' },
+});
 
+// --- Create Account ---
 router.post('/create-account', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
     return res.status(400).json({ message: 'Email and password are required.' });
+
+  if (!validator.isEmail(email))
+    return res.status(400).json({ message: 'Invalid email format.' });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -21,8 +29,11 @@ router.post('/create-account', async (req, res) => {
       'INSERT INTO `user` (email, password) VALUES (?, ?)',
       [email, hashedPassword]
     );
-    
-    res.status(201).json({ message: 'Account created successfully!', user_id: result.insertId });
+
+    res.status(201).json({ 
+      message: 'Account created successfully!',
+      user_id: result.insertId 
+    });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
       res.status(409).json({ message: 'An account with this email already exists.' });
@@ -33,39 +44,47 @@ router.post('/create-account', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+// --- Login (with rate limiter) ---
+router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
     return res.status(400).json({ message: 'Email and password are required.' });
 
+  if (!validator.isEmail(email))
+    return res.status(400).json({ message: 'Invalid email format.' });
+
   try {
-    const [rows] = await pool.execute('SELECT * FROM `user` WHERE email = ?', [email]);
-    
+    const [rows] = await pool.execute(
+      'SELECT user_id, email, password FROM `user` WHERE email = ?',
+      [email]
+    );
+
     if (rows.length === 0)
       return res.status(401).json({ message: 'Invalid email or password.' });
 
     const user = rows[0];
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) return res.status(401).json({ message: 'Invalid email or password.' });
+    if (!isPasswordValid)
+      return res.status(401).json({ message: 'Invalid email or password.' });
+
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET not configured');
+      return res.status(500).json({ message: 'Server configuration error.' });
+    }
 
     const token = jwt.sign(
-      { email: user.email, user_id: user.user_id }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { email: user.email, user_id: user.user_id },
+      process.env.JWT_SECRET,
+      { expiresIn: '4h' } // Extended for convenience
     );
-    
-    // --- THIS IS THE FIX ---
-    // We return a 'user' object containing the ID and Email.
-    // This matches what useAuthForm.js expects: data.user
-    res.status(200).json({ 
-      token, 
-      user: {
-        user_id: user.user_id,
-        email: user.email
-      }
-    });
-    // -----------------------
 
+    // Update last_login
+    await pool.execute('UPDATE `user` SET last_login = NOW() WHERE user_id = ?', [user.user_id]);
+
+    res.status(200).json({
+      token,
+      user: { user_id: user.user_id, email: user.email }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error logging in.' });

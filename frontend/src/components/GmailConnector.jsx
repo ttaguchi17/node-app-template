@@ -124,26 +124,40 @@ function GmailConnector() {
   };
   
 const handleSimpleScan = async () => {
-    setIsScanning(true);
-    try {
-      const token = localStorage.getItem('token');
-      // 1. Call the new '/scan' route
-      const response = await axios.post('http://localhost:3000/api/gmail/scan', 
-        {}, // Send an empty object as the body
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+  setIsScanning(true);
+  try {
+    const token = localStorage.getItem('token');
+
+    const response = await axios.post(
+      'http://localhost:3000/api/gmail/scan',
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    setScanResults(response.data || []);
+    setShowReviewModal(true);
+  } catch (error) {
+    // ✅ Handle backend 401 for expired Gmail tokens
+    if (error.response && error.response.status === 401) {
+      alert('Your Gmail connection has expired or been revoked. Please reconnect your Gmail account.');
       
-      setScanResults(response.data || []); // Store the array of bookings
-      setShowReviewModal(true); // Open the review modal
-    } catch (error) {
-      alert('Failed to scan inbox: ' + error.message);
-    } finally {
-      setIsScanning(false);
+      // Optional: ensure the backend cleanup happened
+      await axios.delete('http://localhost:3000/api/gmail/disconnect', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      // Trigger reconnect popup
+      connectGmail();
+      return;
     }
-  };
-  
+
+    // ✅ Fallback for all other errors
+    alert('Failed to scan inbox: ' + (error.response?.data?.message || error.message));
+  } finally {
+    setIsScanning(false);
+  }
+};
+ 
   // --- NEW: Handler for the "Manual Search" form ---
   const handleManualSearch = async (e) => {
     e.preventDefault(); // Stop form from reloading page
@@ -164,26 +178,33 @@ const handleSimpleScan = async () => {
     console.log(`Executing smart search with query: ${finalQuery}`);
     // --- END OF NEW LOGIC ---
 
-    try {
-      const token = localStorage.getItem('token');
-      // 2. Call the new '/search' route
-      const response = await axios.post('http://localhost:3000/api/gmail/search', 
-        { 
-          query: finalQuery // <-- SEND THE NEW, BUILT QUERY
-        }, 
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
-      setScanResults(response.data || []);
-      setShowReviewModal(true);
-    } catch (error) {
-      alert('Failed to search inbox: ' + error.message);
-    } finally {
-      setIsScanning(false);
-    }
-  };
+  try {
+  const token = localStorage.getItem('token');
+  const response = await axios.post(
+    'http://localhost:3000/api/gmail/search',
+    { query: finalQuery },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  setScanResults(response.data || []);
+  setShowReviewModal(true);
+} catch (error) {
+  if (error.response && error.response.status === 401) {
+    alert('Your Gmail connection has expired or been revoked. Please reconnect your Gmail account.');
+    
+    await axios.delete('http://localhost:3000/api/gmail/disconnect', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+
+    connectGmail();
+    return;
+  }
+
+  alert('Failed to search inbox: ' + (error.response?.data?.message || error.message));
+} finally {
+  setIsScanning(false);
+}
+  };  
 
   const handleReviewSubmit = (selectedBookings) => {
       setBookingsToImport(selectedBookings); // Save the selected items

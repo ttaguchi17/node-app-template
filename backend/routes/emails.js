@@ -20,7 +20,7 @@ router.post('/extract', authenticateToken, async (req, res) => {
     });
 
     if (!result.success) {
-      return res.status(400).json({ message: 'Extraction failed', error: result.error });
+      console.error(`Extraction failed for email from: ${from} | subject: ${subject}`);
     }
 
     // Return extracted data for review
