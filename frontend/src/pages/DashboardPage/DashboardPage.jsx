@@ -7,6 +7,7 @@ import TripList from './components/TripList.jsx';
 import TripDetailsModal from '../../components/TripDetailsModal.jsx';
 import GmailConnector from '../../components/GmailConnector.jsx';
 
+
 // 1. Import our new custom hook
 import { useDashboard } from './useDashboard.js';
 
