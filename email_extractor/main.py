@@ -1,116 +1,89 @@
-# email_extractor/main.py
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import List, Union
+import logging
 
-print("\n" + "="*50)
-print("  SUCCESSFULLY LOADED THE NEW main.py (v4)  ")
-print("="*50 + "\n")
-
-# Import your existing Python logic
+# --- NEW IMPORTS ---
 from filters.email_filter import should_process_email
 from extractors.booking_extractor import extract_booking_data
 from services.gmail_service import fetch_recent_booking_emails
-import json
 
-# --- Define Request Models for our new routes ---
-class ScanRequest(BaseModel):
-    credentials_dict: dict
-    # We can add optional filters later
-    # start_date: Optional[str] = None
-    # end_date: Optional[str] = None
+# Import schemas from formats folder
+from formats.schemas import FlightBooking, HotelBooking, EventBooking, UnknownBooking, BookingUnion
 
-class SearchRequest(BaseModel):
-    credentials_dict: dict
-    query: str # Manual search query is required
+# Setup Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("TrippExtractor")
 
 app = FastAPI(title="Tripp Email Extractor")
 
-# --- This is the "Automated Scan" endpoint ---
-@app.post("/scan")
+# --- REQUEST MODELS ---
+class ScanRequest(BaseModel):
+    credentials_dict: dict
+
+class SearchRequest(BaseModel):
+    credentials_dict: dict
+    query: str 
+
+# --- HELPER (DRY Principle) ---
+def _process_and_validate(emails: list) -> List[BookingUnion]:
+    validated_bookings = []
+
+    for email in emails:
+        should_process, email_type = should_process_email(email['from'], email['subject'], email['body'])
+        
+        if should_process:
+            logger.info(f"Processing {email['id']} as {email_type}")
+            try:
+                # 1. Extract
+                raw_data = extract_booking_data(email['body'], email_type)
+                
+                # 2. Add Metadata (Frontend needs these)
+                raw_data['id'] = email['id']  # Required for duplicate detection
+                raw_data['source_email_id'] = email['id']
+                raw_data['title'] = email['subject'] 
+
+                # 3. Validation
+                if email_type == 'flight':
+                    booking = FlightBooking(**raw_data)
+                elif email_type == 'hotel':
+                    booking = HotelBooking(**raw_data)
+                elif email_type == 'event':
+                    booking = EventBooking(**raw_data)
+                else:
+                    booking = UnknownBooking(**raw_data)
+                
+                validated_bookings.append(booking)
+
+            except Exception as e:
+                logger.error(f"Validation failed for {email['id']}: {e}")
+                validated_bookings.append(UnknownBooking(
+                    type="unknown",
+                    id=email['id'],
+                    source_email_id=email['id'], 
+                    warning=f"Validation Error: {str(e)}"
+                ))
+        else:
+            logger.debug(f"Skipping {email['id']}")
+
+    return validated_bookings
+
+# --- ENDPOINTS ---
+
+@app.post("/scan", response_model=List[BookingUnion])
 async def scan_emails(request: ScanRequest):
-    """
-    Fetches, filters, and extracts bookings using the default 30-day query.
-    """
     try:
-        # 1. Fetch emails using the default query
-        # We pass custom_query=None so the fetcher uses its default
-        emails = fetch_recent_booking_emails(
-            request.credentials_dict, 
-            max_results=10, 
-            custom_query=None
-        )
-        
-        extracted_bookings = []
-        
-        # 2. Filter and Extract data from each email
-        for email in emails:
-            should_process, reason_or_type = should_process_email(email['from'], email['subject'], email['body'])
-            
-            if should_process:
-                print(f"Processing email {email['id']}, detected type: {reason_or_type}")
-                try:
-                    booking_data = extract_booking_data(email['body'], reason_or_type)
-                    
-                    # Add ID and Subject for the React review modal
-                    # We merge the extracted data (like 'airline') with our own
-                    booking_data['id'] = email['id']
-                    booking_data['title'] = email['subject']
-                    
-                    extracted_bookings.append(booking_data)
-                except Exception as e:
-                    print(f"Extraction failed for email {email['id']}: {e}")
-            else:
-                print(f"Skipping email {email['id']}: {reason_or_type}")
-
-        # 3. Send the final list of JSON bookings back to Node.js
-        return extracted_bookings # FastAPI automatically handles jsonify
-
+        emails = fetch_recent_booking_emails(request.credentials_dict, max_results=10, custom_query=None)
+        return _process_and_validate(emails)
     except Exception as e:
-        print(f"Error in /scan: {e}")
+        logger.error(f"Error in /scan: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- This is the "Manual Search" endpoint ---
-@app.post("/search")
+@app.post("/search", response_model=List[BookingUnion])
 async def search_emails(request: SearchRequest):
-    """
-    Fetches, filters, and extracts bookings using a user-provided query.
-    """
     try:
-        # 1. Fetch emails using the CUSTOM query
-        emails = fetch_recent_booking_emails(
-            request.credentials_dict, 
-            max_results=10, 
-            custom_query=request.query # Pass the user's query string
-        )
-        
-        extracted_bookings = []
-        
-        # 2. Filter and Extract (same logic as /scan)
-        for email in emails:
-            should_process, reason_or_type = should_process_email(email['from'], email['subject'], email['body'])
-            
-            if should_process:
-                print(f"Processing email {email['id']}, detected type: {reason_or_type}")
-                try:
-                    booking_data = extract_booking_data(email['body'], reason_or_type)
-                    booking_data['id'] = email['id']
-                    booking_data['title'] = email['subject']
-                    extracted_bookings.append(booking_data)
-                except Exception as e:
-                    print(f"Extraction failed for email {email['id']}: {e}")
-            else:
-                print(f"Skipping email {email['id']}: {reason_or_type}")
-
-        # 3. Send the final list back to Node.js
-        return extracted_bookings
-
+        emails = fetch_recent_booking_emails(request.credentials_dict, max_results=10, custom_query=request.query)
+        return _process_and_validate(emails)
     except Exception as e:
-        print(f"Error in /search: {e}")
+        logger.error(f"Error in /search: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-# --- Health Check Endpoint ---
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-

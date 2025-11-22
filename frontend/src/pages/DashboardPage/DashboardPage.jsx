@@ -38,17 +38,8 @@ export default function DashboardPage() {
     if (!selectedTrip) return false;
     const tripId = selectedTrip.trip_id ?? selectedTrip.id;
     if (!tripId) return false;
-    const token = localStorage.getItem('token');
-    const auth = token && token.toLowerCase().startsWith('bearer ') ? token : token ? `Bearer ${token}` : undefined;
     try {
-      const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}/events/${eventId}`, {
-        method: 'DELETE',
-        headers: auth ? { Authorization: auth } : undefined
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Delete failed (status ${res.status})`);
-      }
+      await apiDelete(`/api/trips/${encodeURIComponent(tripId)}/events/${eventId}`);
       return true;
     } catch (err) {
       console.error('Dashboard deleteEvent error:', err);

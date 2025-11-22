@@ -1,6 +1,6 @@
 // backend/routes/events.js
 const express = require("express");
-// CRITICAL: This allows us to get the :tripId from the parent router
+// CRITICAL: mergeParams allows us to access :tripId from parent router (trips.js)
 const router = express.Router({ mergeParams: true });
 const pool = require("../config/database");
 const authenticateToken = require("../middleware/auth");
@@ -11,7 +11,7 @@ const geocodeLocation = require("../services/geocoding");
  * @desc    Get all events for a specific trip
  */
 router.get("/", authenticateToken, async (req, res) => {
-  const { tripId } = req.params; // <-- This works because of mergeParams
+  const { tripId } = req.params;
   const { user_id } = req.user;
 
   try {

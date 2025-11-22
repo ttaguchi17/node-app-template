@@ -1,16 +1,10 @@
 // src/hooks/useTripDetails.js
 import { useState, useEffect, useCallback } from 'react';
-
 import { useNavigate } from 'react-router-dom';
+import { apiGet, apiPost, apiPatch, apiDelete } from '../../utils/api';
 
 // --- Helper Functions ---
 const PREVIEWS_KEY = 'tripPreviews';
-
-const buildAuthHeader = (raw) => {
-  if (!raw) return undefined;
-  if (raw.toLowerCase().startsWith('bearer ')) return raw;
-  return `Bearer ${raw}`;
-};
 
 function fetchTripPreviewFromLocal(tripId) {
   try {
@@ -102,17 +96,9 @@ export function useTripDetails(tripId) {
   // --- Fetch Events ---
 const fetchEvents = useCallback(async (serverTripId) => {
   if (!serverTripId) return;
-  const token = localStorage.getItem('token');
-  const auth = buildAuthHeader(token);
 
   try {
-    const res = await fetch(`/api/trips/${encodeURIComponent(serverTripId)}/events`, {
-      headers: auth ? { Authorization: auth } : undefined
-    });
-
-    if (!res.ok) throw new Error(`Could not fetch events (status ${res.status})`);
-
-    const body = await res.json();
+    const body = await apiGet(`/api/trips/${encodeURIComponent(serverTripId)}/events`);
     const list = Array.isArray(body) ? body : Array.isArray(body.events) ? body.events : [];
     setEvents(list);
     setFetchError(false);
@@ -129,19 +115,9 @@ const fetchEvents = useCallback(async (serverTripId) => {
     if (!window.confirm('Are you sure you want to delete this event?')) return;
 
     const currentTripId = trip.trip_id ?? trip.id;
-    const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token); 
 
     try {
-      const res = await fetch(`/api/trips/${currentTripId}/events/${eventId}`, {
-        method: 'DELETE',
-        headers: auth ? { Authorization: auth } : undefined,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || 'Failed to delete event.');
-      }
+      await apiDelete(`/api/trips/${currentTripId}/events/${eventId}`);
       setEvents(prevEvents => prevEvents.filter(event => (event.event_id ?? event.id) !== eventId));
     } catch (err) {
       console.error('deleteEvent error:', err);
@@ -154,10 +130,6 @@ const fetchEvents = useCallback(async (serverTripId) => {
     setCreateError('');
     setIsCreating(true);
     try {
-      const token = localStorage.getItem('token');
-      const auth = buildAuthHeader(token);
-      const headers = { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) };
-
       const payload = {
         name: trip.title,
         start_date: trip.start_date ?? trip.dates ?? undefined,
@@ -165,14 +137,7 @@ const fetchEvents = useCallback(async (serverTripId) => {
         ...(trip.location ? { location_input: trip.location } : {}) 
       };
 
-      const res = await fetch('/api/trips', { method: 'POST', headers, body: JSON.stringify(payload) });
-      if (!res.ok) {
-        let msg = `Create failed (status ${res.status})`;
-        try { const body = await res.json(); if (body?.message) msg = body.message; } catch (e) {}
-        throw new Error(msg);
-      }
-
-      const created = await res.json();
+      const created = await apiPost('/api/trips', payload);
       const serverTrip = created.trip || created;
       const { start_date: createdStart, end_date: createdEnd } = extractDates(serverTrip);
       const createdLocation = extractLocation(serverTrip);
@@ -228,27 +193,15 @@ const fetchEvents = useCallback(async (serverTripId) => {
     }
     
     const id = encodeURIComponent(trip.trip_id ?? trip.id);
-    const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token);
 
     try {
       const payload = { ...details, ...(details.location && { location_input: details.location }) };
-      const res = await fetch(`/api/trips/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        const updatedState = { ...details };
-        if (details.name) updatedState.title = details.name;
-        setTrip(prev => ({ ...prev, ...updatedState }));
-        return { success: true, message: 'Trip details saved.' };
-      } else {
-        let bodyTxt = `Update failed (status ${res.status})`;
-        try { const b = await res.json(); bodyTxt = b?.message ? `: ${b.message}` : ''; } catch (e) {}
-        throw new Error(bodyTxt);
-      }
+      await apiPatch(`/api/trips/${id}`, payload);
+      
+      const updatedState = { ...details };
+      if (details.name) updatedState.title = details.name;
+      setTrip(prev => ({ ...prev, ...updatedState }));
+      return { success: true, message: 'Trip details saved.' };
     } catch (err) {
       return { success: false, message: err.message || 'Failed to update trip.' };
     }
@@ -260,18 +213,9 @@ const fetchEvents = useCallback(async (serverTripId) => {
     if (!window.confirm('Are you sure you want to delete this trip and all its data? This cannot be undone.')) return;
 
     const tripIdToDelete = trip.trip_id ?? trip.id;
-    const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token); 
 
     try {
-      const response = await fetch(`/api/trips/${tripIdToDelete}`, {
-        method: 'DELETE',
-        headers: auth ? { Authorization: auth } : undefined
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to delete trip.');
-      }
+      await apiDelete(`/api/trips/${tripIdToDelete}`);
       navigate('/dashboard');
     } catch (err) {
       console.error('deleteTrip error:', err);
@@ -289,23 +233,8 @@ useEffect(() => {
     setEvents([]);
 
     try {
-      const token = localStorage.getItem('token');
-      const auth = buildAuthHeader(token);
-      const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}`, {
-        headers: auth ? { Authorization: auth } : undefined
-      });
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          localStorage.removeItem('token');
-          navigate('/login');
-          return;
-        }
-        if (res.status === 404) setAccessError(true);
-        throw new Error(`Server returned ${res.status}`);
-      }
-
-      const json = await res.json();
+      const json = await apiGet(`/api/trips/${encodeURIComponent(tripId)}`);
+      // apiGet handles 401/403 automatically with redirect
       if (!isMounted) return;
 
       const serverTrip = json.trip || json || {};

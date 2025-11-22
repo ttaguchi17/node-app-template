@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiPost } from '../../utils/api';
 
 export function useAuthForm() {
   // --- State ---
@@ -19,19 +20,7 @@ export function useAuthForm() {
     setMessage('');
 
     try {
-      // NOTE: If you haven't set up a proxy in package.json/vite.config, 
-      // you might need 'http://localhost:3000/api/auth/login' here.
-      const response = await fetch('/api/auth/login', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
+      const data = await apiPost('/api/auth/login', { email, password });
 
       // 1. Save Token
       localStorage.setItem('token', data.token);
@@ -55,17 +44,7 @@ export function useAuthForm() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/create-account', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Sign-up failed');
-      }
+      await apiPost('/api/auth/create-account', { email, password });
 
       // --- Success ---
       setMessage('Account created successfully! Please log in.');

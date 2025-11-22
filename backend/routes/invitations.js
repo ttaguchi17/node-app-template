@@ -1,6 +1,7 @@
 // backend/routes/invitations.js
 const express = require('express');
-const router = express.Router();
+// CRITICAL: mergeParams allows us to access :tripId from parent router (trips.js)
+const router = express.Router({ mergeParams: true });
 const authenticateToken = require('../middleware/auth');
 const pool = require('../config/database'); // mysql2/promise pool
 
@@ -13,7 +14,7 @@ const pool = require('../config/database'); // mysql2/promise pool
  * - Inserts invitations rows for email invites (if table exists) or falls back to storing invited_email in trip_membership when possible.
  * - Creates notifications (best-effort). Notification metadata contains invitation_id and trip_id when available.
  */
-router.post('/:tripId/invitations', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   const tripId = Number(req.params.tripId);
   if (Number.isNaN(tripId)) return res.status(400).json({ error: 'Invalid tripId' });
 
@@ -218,97 +219,6 @@ router.post('/:tripId/invitations', authenticateToken, async (req, res) => {
   } catch (err) {
     await conn.rollback();
     console.error('POST /api/trips/:tripId/invitations error', err && err.stack ? err.stack : err);
-    res.status(500).json({ error: 'db error', details: err.message || String(err) });
-  } finally {
-    conn.release();
-  }
-});
-
-
-/**
- * POST /api/invitations/:invitationId/respond
- * Body: { action: 'accept' | 'decline' }
- *
- * - Auth required. Accept will set invitations.status='accepted' and set trip_membership.status='accepted' (creating membership if needed).
- * - Decline will set invitations.status='declined' and set trip_membership.status='declined' if membership exists.
- */
-router.post('/:invitationId/respond', authenticateToken, async (req, res) => {
-  const invitationId = Number(req.params.invitationId);
-  if (Number.isNaN(invitationId)) return res.status(400).json({ error: 'Invalid invitationId' });
-
-  const action = String((req.body.action || '').toLowerCase()).trim();
-  if (!['accept', 'decline'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
-
-  const responderId = Number(req.user && (req.user.user_id || req.user.id));
-
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    // load invitation row
-    const [invRows] = await conn.execute(`SELECT * FROM invitations WHERE invitation_id = ? LIMIT 1`, [invitationId]);
-    if (!invRows || invRows.length === 0) {
-      await conn.rollback();
-      return res.status(404).json({ error: 'Invitation not found' });
-    }
-    const inv = invRows[0];
-
-    // verify this user is the invitee (if invitation linked to a user)
-    if (inv.invited_user_id && Number(inv.invited_user_id) !== responderId) {
-      await conn.rollback();
-      return res.status(403).json({ error: 'Not your invitation' });
-    }
-
-    const newStatus = action === 'accept' ? 'accepted' : 'declined';
-    await conn.execute(`UPDATE invitations SET status = ?, responded_at = NOW() WHERE invitation_id = ?`, [newStatus, invitationId]);
-
-    if (action === 'accept') {
-      // ensure trip_membership exists and set to accepted
-      const [exists] = await conn.execute(`SELECT * FROM trip_membership WHERE trip_id = ? AND user_id = ? LIMIT 1`, [inv.trip_id, responderId]);
-      if (exists && exists.length > 0) {
-        await conn.execute(`UPDATE trip_membership SET status = 'accepted' WHERE trip_id = ? AND user_id = ?`, [inv.trip_id, responderId]);
-      } else {
-        await conn.execute(
-          `INSERT INTO trip_membership (trip_id, user_id, role, status, invited_by_user_id, invited_at)
-           VALUES (?, ?, 'member', 'accepted', ?, NOW())`,
-          [inv.trip_id, responderId, inv.invited_by_user_id || null]
-        );
-      }
-    } else {
-      // decline: if membership exists, set to declined
-      await conn.execute(`UPDATE trip_membership SET status = 'declined' WHERE trip_id = ? AND user_id = ?`, [inv.trip_id, responderId]);
-    }
-
-    // mark any related notifications as read (best-effort)
-    try {
-      await conn.execute(`UPDATE notifications SET is_read = 1 WHERE JSON_EXTRACT(metadata, '$.invitation_id') = ?`, [String(invitationId)]);
-    } catch (_) {
-      // ignore if JSON_EXTRACT not supported or metadata format differs
-    }
-
-    // notify inviter about the response (best-effort)
-    try {
-      if (inv.invited_by_user_id) {
-        await conn.execute(
-          `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
-           VALUES (?, 'invite_response', ?, ?, ?, NOW())`,
-          [
-            inv.invited_by_user_id,
-            `Invitation ${newStatus}`,
-            `${req.user?.name || 'A user'} ${newStatus} your invite to trip ${inv.trip_id}`,
-            JSON.stringify({ trip_id: inv.trip_id, invitation_id: invitationId, response: newStatus })
-          ]
-        );
-      }
-    } catch (_) {
-      // non-fatal
-    }
-
-    await conn.commit();
-    res.json({ success: true, invitation_id: invitationId, status: newStatus });
-  } catch (err) {
-    await conn.rollback();
-    console.error('POST /api/invitations/:invitationId/respond error', err && err.stack ? err.stack : err);
     res.status(500).json({ error: 'db error', details: err.message || String(err) });
   } finally {
     conn.release();

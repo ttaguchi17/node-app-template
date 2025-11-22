@@ -88,7 +88,7 @@ function GmailConnector() {
       });
       
       // Get the auth URL from the response
-      const authUrl = new URL(response.data.auth_url);
+      const authUrl = new URL(response.data.url);
       
       // Add the JWT token as the state parameter
       authUrl.searchParams.append('state', token);

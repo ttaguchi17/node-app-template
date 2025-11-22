@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Card, Button, Modal, Form, ListGroup, Spinner, Badge, InputGroup,
 } from 'react-bootstrap';
+import { apiGet, apiPost, apiDelete } from '../../../utils/api';
 
 export default function TripMembersBox({ trip, currentUser }) {
   const [showModal, setShowModal] = useState(false);
@@ -68,23 +69,7 @@ export default function TripMembersBox({ trip, currentUser }) {
     setMembersLoading(true);
     setMembersError(null);
     try {
-      const res = await fetch(`/api/trips/${tripId}/members`, {
-        headers: { Accept: 'application/json', ...getAuthHeaders() },
-      });
-
-      if (!res.ok) {
-        if (res.status === 401) setMembersError('Unauthorized — sign in.');
-        else if (res.status === 403) setMembersError('Access denied.');
-        else if (res.status === 404) setMembersError('Members endpoint not found (404).');
-        else {
-          const txt = await res.text().catch(() => null);
-          setMembersError(`Failed to load members (${res.status})${txt ? `: ${txt}` : ''}`);
-        }
-        setMembers([]);
-        return;
-      }
-
-      const data = await res.json();
+      const data = await apiGet(`/api/trips/${tripId}/members`);
 
       // Normalize shapes
       const normalized = (data || []).map((m) => {
@@ -141,13 +126,8 @@ export default function TripMembersBox({ trip, currentUser }) {
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const res = await fetch('/api/users', { headers: { Accept: 'application/json', ...getAuthHeaders() } });
-      if (res.ok) {
-        const rows = await res.json();
-        setAllUsers(rows || []);
-      } else {
-        setAllUsers([]);
-      }
+      const rows = await apiGet('/api/users');
+      setAllUsers(rows || []);
     } catch (err) {
       console.error('fetchAllUsers', err);
       setAllUsers([]);
@@ -207,12 +187,9 @@ export default function TripMembersBox({ trip, currentUser }) {
     // Remote lookup fallback
     if (!matched) {
       try {
-        const res = await fetch(`/api/users?query=${encodeURIComponent(raw)}`, { headers: { Accept: 'application/json', ...getAuthHeaders() } });
-        if (res.ok) {
-          const rows = await res.json();
-          matched = (rows || []).find((r) => String(r.email || '').toLowerCase() === raw.toLowerCase()) || null;
-          if (matched) setAllUsers((prev) => (prev && !prev.find((u) => String(u.id) === String(matched.id)) ? [...prev, matched] : prev));
-        }
+        const rows = await apiGet(`/api/users?query=${encodeURIComponent(raw)}`);
+        matched = (rows || []).find((r) => String(r.email || '').toLowerCase() === raw.toLowerCase()) || null;
+        if (matched) setAllUsers((prev) => (prev && !prev.find((u) => String(u.id) === String(matched.id)) ? [...prev, matched] : prev));
       } catch (e) {
         // ignore remote lookup failure
       }
@@ -251,18 +228,7 @@ export default function TripMembersBox({ trip, currentUser }) {
     const payload = { invited_user_ids, message, role: 'member' };
 
     try {
-      // <<< FIXED: use backend route /api/trips/:tripId/invitations (no /members segment) >>>
-      const res = await fetch(`/api/trips/${tripId}/invitations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const txt = await res.text().catch(() => null);
-        throw new Error(txt || `Invites API failed (${res.status})`);
-      }
-
+      await apiPost(`/api/trips/${tripId}/invitations`, payload);
       await fetchMembers();
       setEnteredEmails([]);
       setMessage('');
@@ -281,15 +247,7 @@ export default function TripMembersBox({ trip, currentUser }) {
     if (!window.confirm(`Are you sure you want to ${action}?`)) return;
 
     try {
-      const res = await fetch(`/api/trips/${tripId}/members/${membershipId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => null);
-        throw new Error(text || `Failed to ${isMe ? 'leave' : 'remove'}`);
-      }
+      await apiDelete(`/api/trips/${tripId}/members/${membershipId}`);
 
       if (isMe) {
         window.location.href = '/dashboard';

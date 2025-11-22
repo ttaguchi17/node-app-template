@@ -78,6 +78,17 @@ export function apiPut(endpoint, body, options = {}) {
 }
 
 /**
+ * PATCH request
+ */
+export function apiPatch(endpoint, body, options = {}) {
+  return apiCall(endpoint, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+    ...options
+  });
+}
+
+/**
  * DELETE request
  */
 export function apiDelete(endpoint, options = {}) {

@@ -26,10 +26,21 @@ const fmtDate = (s) => {
 export default function TripItineraryBox({ events, fetchError, onAddEventClick, canAddEvents, deleteEvent, onEditEventClick, isOrganizer }) {
   return (
     <Card className="shadow mb-4">
-      {/* ... Header remains same ... */}
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <h5 className="mb-0">Itinerary</h5>
+        {canAddEvents && (
+          <Button variant="primary" size="sm" onClick={onAddEventClick}>
+            + Add Event
+          </Button>
+        )}
+      </Card.Header>
       
       <Card.Body>
-        {/* ... Error handling remains same ... */}
+        {fetchError && (
+          <Alert variant="warning" className="mb-3">
+            Could not load events. Please try refreshing the page.
+          </Alert>
+        )}
         
         {events.length > 0 ? (
           <ListGroup variant="flush">

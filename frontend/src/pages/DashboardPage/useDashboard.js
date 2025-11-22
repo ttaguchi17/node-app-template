@@ -1,6 +1,7 @@
 // src/pages/DashboardPage/hooks/useDashboard.js
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiGet, apiDelete } from '../../utils/api';
 
 // --- Helper Functions (Moved from DashboardPage) ---
 const PREVIEWS_KEY = 'tripPreviews';
@@ -46,22 +47,8 @@ export function useDashboard() {
   const fetchTrips = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://localhost:3000/api/trips', {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-
-      if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('token');
-        navigate('/login');
-        return;
-      }
-
-      if (!response.ok) throw new Error('Failed to fetch trips. Are you logged in?');
-
-      const data = await response.json();
+      const data = await apiGet('/api/trips');
       const arr = Array.isArray(data)
         ? data
         : Array.isArray(data.trips)
@@ -96,24 +83,8 @@ export function useDashboard() {
   const deleteTrip = async (tripId) => {
     if (!window.confirm('Are you sure you want to delete this trip and all its data?')) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('You must be logged in to delete trips.');
-      navigate('/login');
-      return;
-    }
-
     try {
-      const response = await fetch(`/api/trips/${tripId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to delete trip.');
-      }
-
+      await apiDelete(`/api/trips/${tripId}`);
       // ✅ Remove from state
       setTrips(prev => prev.filter(t => (t.trip_id ?? t.id) !== tripId));
     } catch (err) {
@@ -125,24 +96,8 @@ export function useDashboard() {
   const deleteEvent = async (eventId, tripId) => {
     if (!window.confirm('Are you sure you want to delete this event?')) return false;
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('You must be logged in.');
-      navigate('/login');
-      return false;
-    }
-
     try {
-      const res = await fetch(`/api/trips/${tripId}/events/${eventId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || 'Failed to delete event.');
-      }
-
+      await apiDelete(`/api/trips/${tripId}/events/${eventId}`);
       return true;
     } catch (err) {
       console.error('deleteEvent error:', err);

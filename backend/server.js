@@ -33,20 +33,12 @@ function tryMount(mountPath, modulePath) {
 }
 
 // Core routes (safe mounts)
-tryMount('/api/auth', './routes/auth');           // optional/auth
-tryMount('/api/trips', './routes/trips');         // trip CRUD + children (events/members) if present
-
-// If you split invitations into its own file, also mount it under /api/trips so routes like
-// '/:tripId/invitations' still map to '/api/trips/:tripId/invitations'
-tryMount('/api/trips', './routes/invitations');   // optional/invitations (may overlap - it's okay)
-
-tryMount('/api/gmail', './routes/gmail');
-tryMount('/api/users', './routes/users');
-tryMount('/api/notifications', './routes/notifications');
-
-// Other optional endpoints (mount if present)
-tryMount('/api/events', './routes/events');
-tryMount('/api/emails', './routes/emails');
+tryMount('/api/auth', './routes/auth');                    // Authentication
+tryMount('/api/trips', './routes/trips');                  // Trip hub (delegates to members, events, invitations)
+tryMount('/api/invitations', './routes/invitation-actions'); // Global invitation actions (respond, list)
+tryMount('/api/gmail', './routes/gmail');                  // Gmail OAuth and email scanning
+tryMount('/api/users', './routes/users');                  // User search and profiles
+tryMount('/api/notifications', './routes/notifications');  // Notification system
 
 // Health check
 app.get('/health', (req, res) => {

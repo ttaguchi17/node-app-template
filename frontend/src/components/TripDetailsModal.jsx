@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // 1. IMPORT LINK
 import { Link } from 'react-router-dom';
 import { Modal, Button, Row, Col, Form, Alert, ListGroup, Badge, CloseButton } from 'react-bootstrap';
+import { apiGet, apiPost } from '../utils/api';
 
 function TripDetailsModal({ trip, show, onClose, deleteEvent }) {
   // --- State for the "Add" Form ---
@@ -51,21 +52,8 @@ function TripDetailsModal({ trip, show, onClose, deleteEvent }) {
   // --- Function to Fetch Events ---
   const fetchEvents = async (tripId) => {
     if (!tripId) return; // Don't fetch if there's no trip
-    const raw = localStorage.getItem('token');
-    const auth = buildAuthHeader(raw);
     try {
-      const response = await fetch(`/api/trips/${encodeURIComponent(tripId)}/events`, {
-        headers: auth ? { Authorization: auth } : undefined
-      });
-      if (!response.ok) {
-        let errText = `Could not fetch events (status ${response.status})`;
-        try {
-          const errJson = await response.json();
-          if (errJson?.message) errText = errJson.message;
-        } catch (e) {}
-        throw new Error(errText);
-      }
-      const data = await response.json();
+      const data = await apiGet(`/api/trips/${encodeURIComponent(tripId)}/events`);
       const list = Array.isArray(data) ? data : Array.isArray(data.events) ? data.events : [];
       setEvents(list);
       setMessage('');
@@ -136,41 +124,20 @@ function TripDetailsModal({ trip, show, onClose, deleteEvent }) {
 
       // Send data
       try {
-        const response = await fetch(`/api/trips/${encodeURIComponent(tripId)}/events`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(auth ? { Authorization: auth } : {})
-          },
-          body: JSON.stringify({
-            title: title,
-            details: details || null,
-            type: type,
-            start_time: startTime,
-            end_time: endTime || null,
-            location_input: location || null
-          })
+        const created = await apiPost(`/api/trips/${encodeURIComponent(tripId)}/events`, {
+          title: title,
+          details: details || null,
+          type: type,
+          start_time: startTime,
+          end_time: endTime || null,
+          location_input: location || null
         });
-
-        if (!response.ok) {
-          let errMsg = `Failed to add event (status ${response.status})`;
-          try {
-            const errJson = await response.json();
-            if (errJson?.message) errMsg = errJson.message;
-          } catch (e) {}
-          throw new Error(errMsg);
-        }
-
-        let created = null;
-        try {
-          created = await response.json();
-        } catch (e) {}
 
         setMessage('Event added successfully!');
         setShowAddSection(false);
         resetForm();
 
-        // Update UI instantly if possible, otherwise refetch
+        // Update UI instantly - apiPost returns the created event
         if (created && (created.event_id || created.id)) {
           setEvents(prev => [created, ...prev]);
         } else {
