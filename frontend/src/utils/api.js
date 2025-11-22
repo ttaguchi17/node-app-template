@@ -29,11 +29,15 @@ export async function apiCall(endpoint, options = {}) {
       headers
     });
 
-    // Handle 401/403 - redirect to login
+    // Handle 401/403 - redirect to login (but NOT if already on login page)
     if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-      return null;
+      // Don't redirect if we're already on the login page or this is a login/signup attempt
+      const isAuthEndpoint = endpoint.includes('/auth/login') || endpoint.includes('/auth/create-account');
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return null;
+      }
     }
 
     if (!response.ok) {

@@ -1,8 +1,24 @@
 // src/pages/LoginPage/components/LoginForm.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Form, Button } from 'react-bootstrap';
 
-export default function LoginForm({ onSubmit, email, setEmail, password, setPassword, isLoading }) {
+export default function LoginForm({ onSubmit, email, setEmail, password, setPassword, isLoading, hasError }) {
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
+  // Reset passwordTouched when an error occurs so user can clear password again
+  React.useEffect(() => {
+    if (hasError) {
+      setPasswordTouched(false);
+    }
+  }, [hasError]);
+
+  const handlePasswordFocus = () => {
+    if (!passwordTouched) {
+      setPassword(''); // Clear password on first focus
+      setPasswordTouched(true);
+    }
+  };
+
   return (
     <Form onSubmit={onSubmit}>
       <h2 className="text-center mb-4">Welcome Back</h2>
@@ -23,6 +39,7 @@ export default function LoginForm({ onSubmit, email, setEmail, password, setPass
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onFocus={handlePasswordFocus}
           required
         />
       </Form.Group>

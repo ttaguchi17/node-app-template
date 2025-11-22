@@ -30,7 +30,8 @@ export function useAuthForm() {
       navigate('/dashboard'); 
       
     } catch (err) {
-      setError(err.message);
+      console.error('Login error:', err);
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +52,8 @@ export function useAuthForm() {
       setActiveTab('login');
       setPassword('');
     } catch (err) {
-      setError(err.message);
+      console.error('Signup error:', err);
+      setError(err.message || 'Account creation failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
