@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { Card, Button } from 'react-bootstrap';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
-import { buildKml, downloadKmlFile } from './exportBookmarks';
+import { buildKml, downloadKmlFile } from './exportBookmarks.jsx';
 
 function FitCircle({ center, radius }) {
   const map = useMap();
@@ -37,7 +37,7 @@ export default function MapBox({ trip, events = [] }) {
 
   const handleDownload = () => {
     const kml = buildKml({ trip, events: eventsWithCoords });
-    const filename = makeFilename();
+    const filename = makeFilename(); // ensures .kml
     downloadKmlFile(kml, filename);
   };
 
@@ -84,6 +84,7 @@ export default function MapBox({ trip, events = [] }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+
           {centerPoint && (
             <Circle
               center={centerPoint}
@@ -91,7 +92,9 @@ export default function MapBox({ trip, events = [] }) {
               pathOptions={{ color: brandColor, weight: 2, fillColor: brandColor, fillOpacity: 0.15 }}
             />
           )}
+
           {centerPoint && radius && <FitCircle center={centerPoint} radius={radius} />}
+
           {eventsWithCoords.map(event => (
             <Marker
               key={event.event_id ?? event.id ?? `${event.latitude}-${event.longitude}`}
@@ -105,7 +108,6 @@ export default function MapBox({ trip, events = [] }) {
           ))}
         </MapContainer>
 
-        {/* Buttons row (simplified) */}
         <div className="d-flex gap-2 mt-3">
           <Button variant="primary" onClick={handleDownload}>
             Download bookmarks (.kml)
