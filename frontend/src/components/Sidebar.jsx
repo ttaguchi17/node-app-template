@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx
 import React from 'react';
 import { Nav, Button } from 'react-bootstrap';
 import voyagoLogo from '../assets/voyagologo.png'; // make sure this file exists at src/assets/voyagologo.png
@@ -7,8 +6,6 @@ export default function Sidebar({
   active = 'dashboard',
   isToggled = false,
   onNavigate = () => {},
-  onRefresh = () => {},
-  onNewTrip = () => {},
   onLogout = () => {}
 }) {
   // Inline styles (no external CSS)
@@ -82,14 +79,6 @@ export default function Sidebar({
     width: '100%'
   };
 
-  const btnSmall = {
-    width: '100%',
-    padding: '6px 10px',
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600
-  };
-
   const item = (id) => ({
     ...navItemBase,
     background: active === id ? 'rgba(255,255,255,0.12)' : 'transparent',
@@ -139,17 +128,13 @@ export default function Sidebar({
           <div style={navIcon}>❓</div>
           <div style={{ flex: 1 }}>Support</div>
         </div>
-
-        {/* Quick action buttons inside sidebar */}
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Button variant="light" size="sm" style={btnSmall} onClick={onRefresh}>🔁 Refresh</Button>
-          <Button variant="light" size="sm" style={btnSmall} onClick={onNewTrip}>＋ New Trip</Button>
-        </div>
       </div>
 
       <div style={footer}>
         <div style={{ marginBottom: 8 }}>
-          <Button variant="outline-light" size="sm" onClick={onLogout} style={{ borderRadius: 8 }}>Log Out</Button>
+          <Button variant="outline-light" size="sm" onClick={onLogout} style={{ borderRadius: 8 }}>
+            Log Out
+          </Button>
         </div>
         <div>© {new Date().getFullYear()} Voyago</div>
       </div>

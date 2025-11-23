@@ -1,3 +1,4 @@
+// src/pages/DashboardPage/DashboardPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Alert, Row, Col, Card, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
@@ -8,10 +9,8 @@ import TripDetailsModal from '../../components/TripDetailsModal.jsx';
 import GmailConnector from '../../components/GmailConnector.jsx';
 import { useDashboard } from './useDashboard.js';
 
-// Import the logo (keep in your project assets folder)
 import voyagoLogo from '../../assets/voyagologo.png';
 
-// Small presentational pieces inline for now (you can move to separate files)
 function StatCard({ title, value, subtitle, icon }) {
   return (
     <Card className="shadow-sm rounded-lg h-100">
@@ -71,7 +70,6 @@ export default function DashboardPage() {
     deleteEvent
   } = useDashboard();
 
-  // local event removal helper (keeps behavior as you had)
   const handleDeleteEvent = async (eventId) => {
     if (!selectedTrip) return false;
     const tripId = selectedTrip.trip_id ?? selectedTrip.id;
@@ -85,7 +83,7 @@ export default function DashboardPage() {
     }
   };
 
-  // left-sidebar toggle kept if you need it later
+  // keep sidebar toggle support in case Layout uses it
   const [isSidebarToggled, setIsSidebarToggled] = useState(false);
   const toggleSidebar = () => setIsSidebarToggled(!isSidebarToggled);
   useEffect(() => {
@@ -120,10 +118,8 @@ export default function DashboardPage() {
     { title: 'Travel Buddies', value: 15, subtitle: '+3 new members' },
   ];
 
-  // hero background image - replace path if you want another image
   const heroImage = '/mnt/data/a3261ea1-79f6-4fa6-a6b9-c5ba45b04cfd.png';
 
-  // navigate helper (SPA-friendly)
   const go = (path) => {
     if (!path) return;
     navigate(path);
@@ -138,13 +134,12 @@ export default function DashboardPage() {
         onRefreshClick={handleRefresh}
         onLogoutClick={handleLogout}
       >
-        {/* Main content area: no inner aside, single left sidebar comes from Layout/Sidebar */}
+        {/* Main content */}
         <div style={{ display: 'flex', gap: 24 }}>
           <main style={{ flex: 1 }}>
-            {/* Top toolbar: keeps Refresh and New Trip in top-right, plus GmailConnector */}
+            {/* Top toolbar: only shows GmailConnector on the right now */}
             <div className="d-flex align-items-center justify-content-between mb-3">
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                {/* small logo in header (optional) */}
                 <img src={voyagoLogo} alt="Voyago" style={{ width: 52, height: 52, borderRadius: 8 }} />
                 <div>
                   <h1 className="h3 mb-0 text-gray-800">Dashboard</h1>
@@ -152,9 +147,8 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* Top-right: only GmailConnector (no Refresh / New Trip here) */}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <Button variant="outline-secondary" size="sm" onClick={handleRefresh}>Refresh</Button>
-                <Button variant="primary" size="sm" onClick={openNewTripModal}>+ New Trip</Button>
                 <GmailConnector />
               </div>
             </div>
@@ -180,6 +174,7 @@ export default function DashboardPage() {
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h5 className="m-0">Upcoming Trips</h5>
                       <div>
+                        {/* keep New Trip here (inside content) */}
                         <Button variant="outline-primary" size="sm" onClick={openNewTripModal}>+ New Trip</Button>
                       </div>
                     </div>

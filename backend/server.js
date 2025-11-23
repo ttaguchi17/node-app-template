@@ -1,4 +1,3 @@
-// backend/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -15,52 +14,57 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Simple boot-time banner
-console.log(`\nStarting backend server (env: ${process.env.NODE_ENV || 'development'})`);
-console.log(`Listening on http://localhost:${port}\n`);
+// --- Boot Log ---
+console.log(`\n🚀 Starting backend server in ${process.env.NODE_ENV || 'development'} mode...`);
+console.log(`Backend running at: http://localhost:${port}\n`);
 
-// --- Mount primary routes ---
-// Use try/catch so a missing/buggy route file doesn't crash the whole server.
-// Each mounted route logs success or a warning on failure.
+// --- Dynamic Route Mounting ---
 function tryMount(mountPath, modulePath) {
   try {
     const router = require(modulePath);
     app.use(mountPath, router);
-    console.log(`mounted ${mountPath} -> ${modulePath}`);
+    console.log(`✅ Mounted ${mountPath} -> ${modulePath}`);
   } catch (err) {
-    console.warn(`WARNING: could not mount ${mountPath} -> ${modulePath}:`, err && err.message);
+    console.warn(`⚠️  Could not mount ${mountPath} -> ${modulePath}:`, err.message);
   }
 }
 
-// Core routes (safe mounts)
-tryMount('/api/auth', './routes/auth');                    // Authentication
-tryMount('/api/trips', './routes/trips');                  // Trip hub (delegates to members, events, invitations)
-tryMount('/api/invitations', './routes/invitation-actions'); // Global invitation actions (respond, list)
-tryMount('/api/gmail', './routes/gmail');                  // Gmail OAuth and email scanning
-tryMount('/api/users', './routes/users');                  // User search and profiles
-tryMount('/api/notifications', './routes/notifications');  // Notification system
+// Core API routes (optional routes will be skipped if missing)
+tryMount('/api/auth', './routes/auth');
+tryMount('/api/trips', './routes/trips');
+// Mount invitations under /api/trips if you keep them as a separate router
+tryMount('/api/trips', './routes/invitations');
+tryMount('/api/gmail', './routes/gmail');
+tryMount('/api/users', './routes/users');
+tryMount('/api/notifications', './routes/notifications');
+tryMount('/api/events', './routes/events');
+tryMount('/api/emails', './routes/emails');
 
-// Health check
+// Health Check
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Optional: serve built frontend (uncomment if you build frontend into ../frontend/dist)
-// const staticPath = path.join(__dirname, '..', 'frontend', 'dist');
-// if (fs.existsSync(staticPath)) {
-//   app.use(express.static(staticPath));
-//   app.get('*', (req, res) => res.sendFile(path.join(staticPath, 'index.html')));
-//   console.log(`Serving frontend from ${staticPath}`);
-// }
+// --- Serve Frontend Build (SPA fallback for React Router) ---
+const staticPath = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(staticPath)) {
+  app.use(express.static(staticPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(staticPath, 'index.html'));
+  });
+  console.log(`📦 Serving frontend from ${staticPath}`);
+} else {
+  console.warn('⚠️  Frontend build not found. Skipping static serve.');
+}
 
-// 404 handler (API)
+// 404 handler (API and others)
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
 // Error handler (last middleware)
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err && err.stack ? err.stack : err);
+  console.error('🔥 Unhandled error:', err && err.stack ? err.stack : err);
   res.status(500).json({ message: 'Internal server error' });
 });
 
