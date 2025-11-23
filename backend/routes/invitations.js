@@ -89,10 +89,13 @@ router.post('/', authenticateToken, async (req, res) => {
       // try to insert an invitations record (if invitations table exists)
       try {
         console.log(`[Invitations] Inserting invitation: trip=${tripId}, invited_user=${uid}, inviter=${invitedBy}`);
+        // Generate unique token for invitation
+        const crypto = require('crypto');
+        const token = crypto.randomBytes(32).toString('hex');
         const [invRes] = await conn.execute(
-          `INSERT INTO invitations (trip_id, invited_user_id, invited_by_user_id, status, created_at)
-           VALUES (?, ?, ?, 'pending', NOW())`,
-          [tripId, uid, invitedBy]
+          `INSERT INTO invitations (trip_id, invited_user_id, invited_by_user_id, token, status, created_at)
+           VALUES (?, ?, ?, ?, 'pending', NOW())`,
+          [tripId, uid, invitedBy, token]
         );
         console.log(`[Invitations] Invitation created with ID: ${invRes.insertId}`);
         createdInvitations.push({ invitation_id: invRes.insertId, trip_id: tripId, invited_user_id: uid });
@@ -133,10 +136,13 @@ router.post('/', authenticateToken, async (req, res) => {
         // insert invitation record if table exists
         let invId = null;
         try {
+          // Generate unique token for invitation
+          const crypto = require('crypto');
+          const token = crypto.randomBytes(32).toString('hex');
           const [invRes] = await conn.execute(
-            `INSERT INTO invitations (trip_id, invited_user_id, invited_email, invited_by_user_id, status, created_at)
-             VALUES (?, ?, ?, ?, 'pending', NOW())`,
-            [tripId, matchedUserId, email, invitedBy]
+            `INSERT INTO invitations (trip_id, invited_user_id, invited_email, invited_by_user_id, token, status, created_at)
+             VALUES (?, ?, ?, ?, ?, 'pending', NOW())`,
+            [tripId, matchedUserId, email, invitedBy, token]
           );
           invId = invRes.insertId;
           createdInvitations.push({ invitation_id: invId, trip_id: tripId, invited_email: email, invited_user_id: matchedUserId });
