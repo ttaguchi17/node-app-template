@@ -88,41 +88,34 @@ router.post('/', authenticateToken, async (req, res) => {
 
       // try to insert an invitations record (if invitations table exists)
       try {
+        console.log(`[Invitations] Inserting invitation: trip=${tripId}, invited_user=${uid}, inviter=${invitedBy}`);
         const [invRes] = await conn.execute(
-          `INSERT INTO invitations (trip_id, invited_user_id, invited_by_user_id, message, status, created_at)
-           VALUES (?, ?, ?, ?, 'pending', NOW())`,
-          [tripId, uid, invitedBy, message || null]
+          `INSERT INTO invitations (trip_id, invited_user_id, invited_by_user_id, status, created_at)
+           VALUES (?, ?, ?, 'pending', NOW())`,
+          [tripId, uid, invitedBy]
         );
+        console.log(`[Invitations] Invitation created with ID: ${invRes.insertId}`);
         createdInvitations.push({ invitation_id: invRes.insertId, trip_id: tripId, invited_user_id: uid });
         // attempt to notify the user (best-effort)
         try {
+          console.log(`[Invitations] Creating notification: recipient=${uid}, trip=${tripId}`);
           await conn.execute(
-            `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
-             VALUES (?, 'trip_invite', ?, ?, ?, NOW())`,
+            `INSERT INTO notifications (recipient_user_id, trip_id, type, title, body, metadata, created_at)
+             VALUES (?, ?, 'trip_invite', ?, ?, ?, NOW())`,
             [
               uid,
+              tripId,
               `You were invited to a trip`,
               message || `You've been invited to join trip ${tripId}`,
-              JSON.stringify({ trip_id: tripId, invitation_id: invRes.insertId })
+              JSON.stringify({ invitation_id: invRes.insertId })
             ]
           );
+          console.log(`[Invitations] ✅ Created notification for user ${uid} for trip ${tripId}`);
         } catch (nerr) {
-          // attempt alternate column names (some schemas use different column names)
-          try {
-            await conn.execute(
-              `INSERT INTO notifications (recipient_user_id, type, title, body, metadata) VALUES (?, 'trip_invite', ?, ?, ?)`,
-              [
-                uid,
-                `You were invited to a trip`,
-                message || `You've been invited to join trip ${tripId}`,
-                JSON.stringify({ trip_id: tripId, invitation_id: invRes.insertId })
-              ]
-            );
-          } catch (_) {
-            // swallow - notifications are best-effort
-          }
+          console.error(`[Invitations] ❌ Failed to create notification for user ${uid}:`, nerr.message, nerr.sqlMessage);
         }
       } catch (invErr) {
+        console.error(`[Invitations] ❌ Failed to create invitation record:`, invErr.message);
         // If invitations table doesn't exist, ignore - we already created trip_membership row
       }
     }
@@ -141,9 +134,9 @@ router.post('/', authenticateToken, async (req, res) => {
         let invId = null;
         try {
           const [invRes] = await conn.execute(
-            `INSERT INTO invitations (trip_id, invited_user_id, invited_email, invited_by_user_id, message, status, created_at)
-             VALUES (?, ?, ?, ?, ?, 'pending', NOW())`,
-            [tripId, matchedUserId, email, invitedBy, message || null]
+            `INSERT INTO invitations (trip_id, invited_user_id, invited_email, invited_by_user_id, status, created_at)
+             VALUES (?, ?, ?, ?, 'pending', NOW())`,
+            [tripId, matchedUserId, email, invitedBy]
           );
           invId = invRes.insertId;
           createdInvitations.push({ invitation_id: invId, trip_id: tripId, invited_email: email, invited_user_id: matchedUserId });
@@ -178,17 +171,19 @@ router.post('/', authenticateToken, async (req, res) => {
           // create notification for the matched user
           try {
             await conn.execute(
-              `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
-               VALUES (?, 'trip_invite', ?, ?, ?, NOW())`,
+              `INSERT INTO notifications (recipient_user_id, trip_id, type, title, body, metadata, created_at)
+               VALUES (?, ?, 'trip_invite', ?, ?, ?, NOW())`,
               [
                 matchedUserId,
+                tripId,
                 `You were invited to a trip`,
                 message || `You've been invited to join trip ${tripId}`,
-                JSON.stringify({ trip_id: tripId, invitation_id: invId })
+                JSON.stringify({ invitation_id: invId })
               ]
             );
+            console.log(`[Invitations] Created notification for email-matched user ${matchedUserId} for trip ${tripId}`);
           } catch (nerr) {
-            // ignore - best-effort
+            console.error(`[Invitations] Failed to create notification for email-matched user ${matchedUserId}:`, nerr.message, nerr.sqlMessage);
           }
         } else {
           // No matched account — you can choose to send an external email here (outside scope)

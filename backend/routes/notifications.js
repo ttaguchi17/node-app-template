@@ -11,7 +11,7 @@ const authenticateToken = require('../middleware/auth');
  * (No auth here — adjust to require auth if desired)
  */
 router.post('/', async (req, res) => {
-  const { recipient_user_id, type, title, body: content, metadata } = req.body;
+  const { recipient_user_id, trip_id, type, title, body: content, metadata } = req.body;
   if (!recipient_user_id || !type) {
     return res.status(400).json({ error: 'recipient_user_id and type required' });
   }
@@ -20,9 +20,9 @@ router.post('/', async (req, res) => {
     const metaString = metadata ? JSON.stringify(metadata) : null;
 
     const [result] = await pool.execute(
-      `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
-      [recipient_user_id, type, title || null, content || null, metaString]
+      `INSERT INTO notifications (recipient_user_id, trip_id, type, title, body, metadata, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [recipient_user_id, trip_id || null, type, title || null, content || null, metaString]
     );
 
     const insertId = result.insertId;
@@ -77,7 +77,10 @@ router.get('/', authenticateToken, async (req, res) => {
     }
     query += ` ORDER BY created_at DESC LIMIT 50`;
 
+    console.log(`[Notifications GET] Querying notifications for user ${userId}`);
     const [rows] = await pool.execute(query, params);
+
+    console.log(`[Notifications GET] User ${userId} fetched ${rows.length} notifications`, rows.map(r => ({ id: r.id, type: r.type, recipient: r.recipient_user_id, trip: r.trip_id })));
 
     // Normalize rows: parse metadata + unify id field
     const normalized = (rows || []).map((r) => {
@@ -98,6 +101,7 @@ router.get('/', authenticateToken, async (req, res) => {
       };
     });
 
+    console.log(`[Notifications GET] Returning ${normalized.length} normalized notifications`);
     res.json(normalized);
   } catch (err) {
     console.error('GET /api/notifications error', err && err.stack ? err.stack : err);
@@ -176,8 +180,8 @@ router.post('/:id/respond', authenticateToken, async (req, res) => {
     const metadata = typeof notif.metadata === 'string' ? JSON.parse(notif.metadata) : notif.metadata;
 
     // Example: handle trip invite type
-    if (notif.type === 'trip_invite' && metadata && metadata.trip_id) {
-      const tripId = metadata.trip_id;
+    if (notif.type === 'trip_invite' && notif.trip_id) {
+      const tripId = notif.trip_id;
 
       if (action === 'accept') {
         // mark membership accepted (table name may vary)
