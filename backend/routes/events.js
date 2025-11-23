@@ -1,6 +1,6 @@
 // backend/routes/events.js
 const express = require("express");
-// CRITICAL: This allows us to get the :tripId from the parent router
+// CRITICAL: mergeParams allows us to access :tripId from parent router (trips.js)
 const router = express.Router({ mergeParams: true });
 const pool = require("../config/database");
 const authenticateToken = require("../middleware/auth");

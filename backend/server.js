@@ -25,13 +25,14 @@ function tryMount(mountPath, modulePath) {
     app.use(mountPath, router);
     console.log(`✅ Mounted ${mountPath} -> ${modulePath}`);
   } catch (err) {
-    console.warn(`⚠️  Could not mount ${mountPath}:`, err.message);
+    console.warn(`⚠️  Could not mount ${mountPath} -> ${modulePath}:`, err.message);
   }
 }
 
-// Core API routes
+// Core API routes (optional routes will be skipped if missing)
 tryMount('/api/auth', './routes/auth');
 tryMount('/api/trips', './routes/trips');
+// Mount invitations under /api/trips if you keep them as a separate router
 tryMount('/api/trips', './routes/invitations');
 tryMount('/api/gmail', './routes/gmail');
 tryMount('/api/users', './routes/users');
@@ -56,17 +57,18 @@ if (fs.existsSync(staticPath)) {
   console.warn('⚠️  Frontend build not found. Skipping static serve.');
 }
 
-// --- Error Handling ---
+// 404 handler (API and others)
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
+// Error handler (last middleware)
 app.use((err, req, res, next) => {
-  console.error('🔥 Unhandled error:', err.stack || err);
+  console.error('🔥 Unhandled error:', err && err.stack ? err.stack : err);
   res.status(500).json({ message: 'Internal server error' });
 });
 
-// --- Start Server ---
+// Start server
 app.listen(port, () => {
   console.log(`✅ Backend API server running at http://localhost:${port}`);
 });

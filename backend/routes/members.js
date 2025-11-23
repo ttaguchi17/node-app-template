@@ -1,13 +1,13 @@
 // backend/routes/members.js
 const express = require('express');
-// CRITICAL: This allows us to get the :tripId from the parent router
+// CRITICAL: mergeParams allows us to access :tripId from parent router (trips.js)
 const router = express.Router({ mergeParams: true }); 
 const pool = require('../config/database');
 const authenticateToken = require('../middleware/auth');
 
 /**
  * @route   GET /api/trips/:tripId/members
- * @desc    Get members for a trip
+ * @desc    Get all members for a specific trip
  */
 router.get('/', authenticateToken, async (req, res) => {
   const { tripId } = req.params;
@@ -60,97 +60,146 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 /**
- * @route   POST /api/trips/:tripId/invitations
- * @desc    Invite users to a trip
+ * @route   POST /api/trips/:tripId/members/:userId/accept
+ * @desc    Accept invitation to join trip
  */
-router.post('/invitations', authenticateToken, async (req, res) => {
-  const { tripId } = req.params;
-  const { invited_user_ids = [], message = '', role = 'member' } = req.body;
-  const invitedBy = req.user.user_id;
+router.post('/:userId/accept', authenticateToken, async (req, res) => {
+  const { tripId, userId } = req.params;
+  const authUserId = String(req.user.user_id ?? req.user.id ?? '');
+  const authEmail = (req.user.email || '').toLowerCase();
 
-  if (!Array.isArray(invited_user_ids) || invited_user_ids.length === 0) {
-    return res.status(400).json({ message: 'No invitees provided.' });
+  if (String(userId) !== authUserId) {
+    return res.status(403).json({ message: 'You can only accept invites for your own account.' });
   }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // 1. Check permissions
-    const [perm] = await conn.execute(
-      `SELECT tm.role FROM trip_membership tm
-       WHERE tm.trip_id = ? AND tm.user_id = ? LIMIT 1`,
-      [tripId, req.user.user_id]
+    // check membership row
+    const [exists] = await conn.execute(
+      `SELECT * FROM trip_membership WHERE trip_id = ? AND user_id = ? LIMIT 1`,
+      [tripId, userId]
     );
-    if (perm.length === 0) {
-      await conn.rollback();
-      return res.status(403).json({ message: 'Access denied.' });
-    }
-    const requesterRole = perm[0].role || '';
-    if (!['organizer', 'owner', 'admin'].includes(requesterRole)) { 
-      await conn.rollback();
-      return res.status(403).json({ message: 'Insufficient permissions to invite.' });
-    }
 
-    const created = [];
-    for (const uidRaw of invited_user_ids) {
-      const uid = Number(uidRaw);
-      if (isNaN(uid)) continue;
-
-      // Skip if already a member
-      const [exists] = await conn.execute(
-        `SELECT 1 FROM trip_membership WHERE trip_id = ? AND user_id = ? LIMIT 1`,
-        [tripId, uid]
-      );
-      if (exists.length) continue;
-
-      // Insert invitation
-      const [ins] = await conn.execute(
-        `INSERT INTO trip_membership (trip_id, user_id, role, status, invited_by_user_id, invited_at)
-         VALUES (?, ?, ?, 'invited', ?, NOW())`,
-        [tripId, uid, role, invitedBy]
-      );
-      created.push({ id: ins.insertId, trip_id: Number(tripId), user_id: uid });
-    }
-
-    // 2. Insert Notifications (Best Effort)
-    try {
-      for (const c of created) {
+    if (exists.length) {
+      // update status to accepted
+      try {
         await conn.execute(
-          `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
-           VALUES (?, 'trip_invite', ?, ?, ?, NOW())`,
-          [c.user_id, `You were invited to trip ${tripId}`, message || `You've been invited to join a trip.`, JSON.stringify({ trip_id: tripId })]
+          `UPDATE trip_membership SET status = 'accepted', responded_at = NOW() WHERE trip_id = ? AND user_id = ?`,
+          [tripId, userId]
+        );
+      } catch (e) {
+        await conn.execute(
+          `UPDATE trip_membership SET status = 'accepted' WHERE trip_id = ? AND user_id = ?`,
+          [tripId, userId]
         );
       }
-    } catch (nErr) {
-      console.warn('Notification insert failed (non-fatal):', nErr.message || nErr);
+    } else {
+      // no membership row: attempt to find a trip_invitations record by email (optional)
+      let inserted = false;
+      try {
+        const [invRows] = await conn.execute(
+          `SELECT id FROM trip_invitations WHERE trip_id = ? AND LOWER(invited_email) = ? LIMIT 1`,
+          [tripId, authEmail]
+        );
+        if (invRows.length) {
+          await conn.execute(
+            `INSERT INTO trip_membership (trip_id, user_id, role, status, invited_by_user_id, invited_at, responded_at)
+             VALUES (?, ?, ?, 'accepted', NULL, NOW(), NOW())`,
+            [tripId, userId, 'member']
+          );
+          inserted = true;
+          try {
+            await conn.execute(`UPDATE trip_invitations SET status = 'accepted' WHERE id = ?`, [invRows[0].id]);
+          } catch (e) { /* ignore if column missing */ }
+        }
+      } catch (e) {
+        // silent: table may not exist
+      }
+
+      if (!inserted) {
+        await conn.execute(
+          `INSERT INTO trip_membership (trip_id, user_id, role, status, invited_at, responded_at)
+           VALUES (?, ?, ?, 'accepted', NOW(), NOW())`,
+          [tripId, userId, 'member']
+        );
+      }
     }
 
     await conn.commit();
-    
-    // 3. Return updated list (Copying logic from GET /)
+
+    // return refreshed members
     const [rows] = await pool.execute(
-      `SELECT tm.*, u.*
-       FROM trip_membership tm
-       LEFT JOIN user u ON u.user_id = tm.user_id
-       WHERE tm.trip_id = ?`,
+      `SELECT tm.*, u.* FROM trip_membership tm LEFT JOIN user u ON u.user_id = tm.user_id WHERE tm.trip_id = ?`,
       [tripId]
     );
-    const normalized = (rows || []).map(r => ({
-      id: r.id ?? r.membership_id ?? r.trip_membership_id,
-      user_id: r.user_id,
-      name: r.name ?? r.full_name ?? r.email ?? 'Pending User',
-      email: r.email ?? 'Pending Email',
-      role: r.role,
-      status: r.status,
-    }));
 
-    res.status(200).json({ success: true, created_count: created.length, members: normalized });
+    const normalized = (rows || []).map(r => {
+      const membershipId = r.id ?? r.membership_id ?? null;
+      const userId = r.user_id ?? null;
+      const name = r.name ?? r.user_name ?? null;
+      const email = r.email ?? r.user_email ?? null;
+      return {
+        id: membershipId,
+        user_id: userId,
+        name,
+        email,
+        role: r.role,
+        status: r.status,
+      };
+    });
 
+    res.status(200).json({ success: true, members: normalized });
   } catch (err) {
     await conn.rollback();
-    console.error('POST invitations error', err && err.stack ? err.stack : err);
-    res.status(500).json({ message: 'Error sending invites.' });
+    console.error('POST accept invite error', err && (err.stack || err.message) ? (err.stack || err.message) : err);
+    res.status(500).json({ message: 'Error accepting invite.' });
+  } finally {
+    conn.release();
+  }
+});
+
+/**
+ * @route   PATCH /api/trips/:tripId/members/:userId
+ * @desc    Update member role (organizer/admin only)
+ */
+router.patch('/:userId', authenticateToken, async (req, res) => {
+  const { tripId, userId } = req.params;
+  const { role } = req.body; // Expecting { "role": "admin" }
+
+  // Validate role
+  const validRoles = ['organizer', 'admin', 'member', 'viewer'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ message: 'Invalid role specified.' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    // Check Permissions: Requester must be Owner or Organizer
+    const [requester] = await conn.execute(
+      `SELECT role FROM trip_membership WHERE trip_id = ? AND user_id = ?`,
+      [tripId, req.user.user_id]
+    );
+
+    if (!requester.length || !['owner', 'organizer'].includes(requester[0].role)) {
+      return res.status(403).json({ message: 'Only Owners and Organizers can change roles.' });
+    }
+
+    // Update the target user's role
+    const [result] = await conn.execute(
+      `UPDATE trip_membership SET role = ? WHERE trip_id = ? AND user_id = ?`,
+      [role, tripId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Member not found.' });
+    }
+
+    res.json({ message: 'Member role updated successfully.', userId, newRole: role });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error updating role.' });
   } finally {
     conn.release();
   }

@@ -1,6 +1,7 @@
 // src/components/NewTripModal.jsx
 import React, { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { apiPost } from '../../../utils/api';
 
 // We receive a new prop 'onTripCreated' to tell the dashboard to refresh (or insert)
 function NewTripModal({ show, onClose, onTripCreated }) {
@@ -11,12 +12,6 @@ function NewTripModal({ show, onClose, onTripCreated }) {
   const [message, setMessage] = useState('');
   const [messageVariant, setMessageVariant] = useState('danger');
   const [isLoading, setIsLoading] = useState(false);
-
-  const buildAuthHeader = (raw) => {
-    if (!raw) return undefined;
-    if (raw.toLowerCase().startsWith('bearer ')) return raw;
-    return `Bearer ${raw}`;
-  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -37,31 +32,15 @@ function NewTripModal({ show, onClose, onTripCreated }) {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token);
-
     try {
-      const response = await fetch('/api/trips', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(auth ? { Authorization: auth } : {})
-        },
-        body: JSON.stringify({
-          name: tripName,
-          start_date: startDate || null,
-          end_date: endDate || null,
-          location_input: location || null // Changed from location to location_input to match backend
-        })
+      const data = await apiPost('/api/trips', {
+        name: tripName,
+        start_date: startDate || null,
+        end_date: endDate || null,
+        location_input: location || null // Changed from location to location_input to match backend
       });
 
-      const data = await (response.ok ? response.json() : response.json().catch(() => ({})));
-
-      if (!response.ok) {
-        const msg = data?.message || `Create failed (status ${response.status})`;
-        throw new Error(msg);
-      }
-
+      // Success - apiPost only returns on 2xx status
       const createdTrip = data.trip || data;
       setMessageVariant('success');
       setMessage('Trip created successfully!');

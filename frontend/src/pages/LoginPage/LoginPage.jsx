@@ -25,6 +25,13 @@ export default function LoginPage() {
   } = useAuthForm();
 
   // 3. The render is now clean and simple
+  // Debug: Log error state
+  React.useEffect(() => {
+    if (error) {
+      console.log('Error state changed:', error);
+    }
+  }, [error]);
+
   return (
     <div className="login-page">
       <div className="login-container">
@@ -59,6 +66,7 @@ export default function LoginPage() {
               password={password}
               setPassword={setPassword}
               isLoading={isLoading}
+              hasError={!!error}
             />
           ) : (
             <SignUpForm 
@@ -68,6 +76,7 @@ export default function LoginPage() {
               password={password}
               setPassword={setPassword}
               isLoading={isLoading}
+              hasError={!!error}
             />
           )}
         </div>

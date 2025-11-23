@@ -1,15 +1,7 @@
 // src/components/EditEventModal.jsx
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col, Alert, InputGroup } from 'react-bootstrap';
-
-// Helper: build auth header
-const buildAuthHeader = (raw) => {
-  if (!raw) return undefined;
-  if (raw.toLowerCase().startsWith('bearer ')) return raw;
-  return `Bearer ${raw}`;
-};
-
-// Helper: Format date for datetime-local input
+import { apiPatch } from '../../../utils/api';// Helper: Format date for datetime-local input
 const formatDateTimeLocal = (isoString) => {
   if (!isoString) return '';
   try {
@@ -150,38 +142,20 @@ export default function EditEventModal({ event, tripId, show, onClose, onEventUp
       payload.details = formData.manual_details_text;
     }
 
-    const token = localStorage.getItem('token');
-    const auth = buildAuthHeader(token);
+    try {
+      await apiPatch(`/api/trips/${tripId}/events/${event.event_id}`, payload);
 
-    try {
-      // This is the new PATCH (update) route we need to build
-      const res = await fetch(`/api/trips/${tripId}/events/${event.event_id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(auth ? { Authorization: auth } : {})
-        },
-        body: JSON.stringify(payload)
-      });
+      // Success!
+      setIsLoading(false);
+      onEventUpdated(); // Tell the parent page to refresh
+      onClose(); // Close this modal
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || 'Failed to update event.');
-      }
-
-      // Success!
-      setIsLoading(false);
-      onEventUpdated(); // Tell the parent page to refresh
-      onClose(); // Close this modal
-
-    } catch (err) {
-      console.error('Update event error:', err);
-      setMessage(err.message);
-      setIsLoading(false);
-    }
-  };
-
-  if (!event) return null;
+    } catch (err) {
+      console.error('Update event error:', err);
+      setMessage(err.message);
+      setIsLoading(false);
+    }
+  };  if (!event) return null;
 
   return (
     <Modal show={show} onHide={onClose} centered size="lg">
