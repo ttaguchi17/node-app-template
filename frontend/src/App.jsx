@@ -7,22 +7,20 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import TripDetailsPage from './pages/TripDetailsPage/TripDetailsPage.jsx';
+import CalendarPage from './pages/CalendarPage.jsx'; // match exact filename/casing
 
 function App() {
-    return (
+  return (
     <>
-      {/* Keep your Toast component here */}
-      {/* ... */}
-
       <Routes>
         {/* === Public Routes === */}
-        <Route path="/" element={<LandingPage />} /> 
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
 
-        {/* === Protected Routes === */}
+        {/* === Protected Routes (requires auth) === */}
         <Route element={<ProtectedRoute />}>
-          {/* Dashboard is now explicitly at /dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/trips/:tripId" element={<TripDetailsPage />} />
         </Route>
 
