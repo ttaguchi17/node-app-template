@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/auth');
-const EmailExtractorService = require('../services/emailExtractor');
-const { mapExtractedDataToEvent, mapToItineraryEventPreview } = require('../utils/mappers');
+const EmailExtractorService = require('./emailExtractor');
+const { mapExtractedDataToEvent, mapToItineraryEventPreview } = require('./mappers');
 const pool = require('../config/database');
 
 // Extract booking from email

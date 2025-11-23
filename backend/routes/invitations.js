@@ -27,6 +27,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
   const invitedBy = Number(req.user && (req.user.user_id || req.user.id));
 
+  // Validate invitedBy user ID
+  if (!invitedBy || Number.isNaN(invitedBy)) {
+    return res.status(401).json({ error: 'Invalid user authentication.' });
+  }
+
   if ((!Array.isArray(invited_user_ids) || invited_user_ids.length === 0)
     && (!Array.isArray(invited_emails) || invited_emails.length === 0)) {
     return res.status(400).json({ error: 'No invitees provided.' });
@@ -195,7 +200,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Return fresh membership list for convenience
     const [rows] = await pool.execute(
-      `SELECT tm.*, u.user_id AS user_user_id, u.name AS user_name, u.email AS user_email
+      `SELECT tm.*, u.user_id AS user_user_id, u.email AS user_email
        FROM trip_membership tm
        LEFT JOIN user u ON u.user_id = tm.user_id
        WHERE tm.trip_id = ?`,
@@ -204,7 +209,6 @@ router.post('/', authenticateToken, async (req, res) => {
     const normalized = (rows || []).map(r => ({
       membership_id: r.id ?? r.membership_id ?? null,
       user_id: r.user_id ?? r.user_user_id ?? null,
-      name: r.user_name ?? r.name ?? null,
       email: r.user_email ?? r.email ?? null,
       role: r.role,
       status: r.status
@@ -218,8 +222,20 @@ router.post('/', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     await conn.rollback();
-    console.error('POST /api/trips/:tripId/invitations error', err && err.stack ? err.stack : err);
-    res.status(500).json({ error: 'db error', details: err.message || String(err) });
+    console.error('POST /api/trips/:tripId/invitations error:', err);
+    console.error('Error stack:', err && err.stack);
+    console.error('Error details:', {
+      message: err.message,
+      code: err.code,
+      sqlMessage: err.sqlMessage,
+      sql: err.sql
+    });
+    res.status(500).json({ 
+      error: 'Database error while creating invitations',
+      message: err.message || String(err),
+      code: err.code,
+      sqlMessage: err.sqlMessage
+    });
   } finally {
     conn.release();
   }
