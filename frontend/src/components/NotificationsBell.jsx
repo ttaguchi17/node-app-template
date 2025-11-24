@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Nav, Badge, Dropdown, Spinner, Button } from 'react-bootstrap';
-import axios from 'axios';
+import { apiGet, apiPost } from '../utils/api';
 // You can use an icon library like 'react-icons' or just text
 // import { FaBell } from 'react-icons/fa'; 
 
@@ -9,28 +9,20 @@ const NotificationsBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  
-  // Helper to get auth header
-  const getAuthHeader = () => {
-    const token = localStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : null;
-  };
 
   // 1. Fetch Notifications
   const fetchNotifications = async () => {
-    const headers = getAuthHeader();
-    if (!headers) return;
-
     try {
       // We fetch ALL notifications (read and unread) to show history
-      const res = await axios.get('http://localhost:3000/api/notifications', { headers });
-      setNotifications(res.data);
+      const data = await apiGet('/api/notifications');
+      console.log('[NotificationsBell] Fetched notifications:', data);
+      setNotifications(data);
       
       // Calculate unread count
-      const unread = res.data.filter(n => !n.is_read).length;
+      const unread = data.filter(n => !n.is_read).length;
       setUnreadCount(unread);
     } catch (err) {
-      console.error("Failed to fetch notifications:", err);
+      console.error("[NotificationsBell] Failed to fetch notifications:", err);
     }
   };
 
@@ -45,18 +37,15 @@ const NotificationsBell = () => {
   const handleRespond = async (id, action, e) => {
     e.stopPropagation(); // Prevent dropdown from closing
     e.preventDefault();
-    
-    const headers = getAuthHeader();
-    if (!headers) return;
 
     try {
       setLoading(true);
-      await axios.post(`http://localhost:3000/api/notifications/${id}/respond`, { action }, { headers });
+      await apiPost(`/api/notifications/${id}/respond`, { action });
       
       // Refresh list after action
       await fetchNotifications();
     } catch (err) {
-      alert('Failed to respond: ' + (err.response?.data?.message || err.message));
+      alert('Failed to respond: ' + (err.message || 'An error occurred'));
     } finally {
       setLoading(false);
     }

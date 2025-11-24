@@ -31,10 +31,17 @@ CREATE TABLE trip (
 CREATE TABLE trip_membership (
     membership_id INT AUTO_INCREMENT PRIMARY KEY,
     trip_id INT NOT NULL,
-    user_id INT NOT NULL,
+    user_id INT,
     role VARCHAR(50) DEFAULT 'member',
+    status VARCHAR(50) DEFAULT 'accepted',
+    invited_by_user_id INT,
+    invited_at TIMESTAMP,
+    invited_email VARCHAR(255),
     FOREIGN KEY (trip_id) REFERENCES trip(trip_id),
-    FOREIGN KEY (user_id) REFERENCES user(user_id)
+    FOREIGN KEY (user_id) REFERENCES user(user_id),
+    FOREIGN KEY (invited_by_user_id) REFERENCES user(user_id),
+    INDEX (trip_id, user_id),
+    INDEX (status)
 );
 -- 4. Create the ItineraryEvent table
 CREATE TABLE itinerary_event (
@@ -71,4 +78,38 @@ CREATE TABLE gmail_tokens (
   
   -- This ensures one user can only have one row of tokens
   UNIQUE KEY (user_id) 
+);
+
+-- 6. Create the Notifications table
+CREATE TABLE notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  recipient_user_id INT NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255),
+  body TEXT,
+  metadata JSON,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (recipient_user_id) REFERENCES user(user_id) ON DELETE CASCADE,
+  INDEX (recipient_user_id, is_read),
+  INDEX (created_at)
+);
+
+-- 7. Create the Invitations table
+CREATE TABLE invitations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  trip_id INT NOT NULL,
+  invited_user_id INT,
+  invited_email VARCHAR(255),
+  invited_by_user_id INT NOT NULL,
+  message TEXT,
+  status VARCHAR(50) DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (trip_id) REFERENCES trip(trip_id) ON DELETE CASCADE,
+  FOREIGN KEY (invited_user_id) REFERENCES user(user_id) ON DELETE CASCADE,
+  FOREIGN KEY (invited_by_user_id) REFERENCES user(user_id) ON DELETE CASCADE,
+  INDEX (invited_user_id, status),
+  INDEX (invited_email, status)
 );

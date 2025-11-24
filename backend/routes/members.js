@@ -258,13 +258,13 @@ router.delete('/:membershipId', authenticateToken, async (req, res) => {
         [membershipId]
       );
       
-      // Notification logic
-      if (isOrganizer && !isDeletingSelf) {
+      // Notification logic: only notify if user was an accepted member (not just invited)
+      if (isOrganizer && !isDeletingSelf && targetMembership.status === 'accepted') {
         try {
           await connection.execute(
-            `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
-             VALUES (?, 'trip_removed', ?, ?, ?, NOW())`,
-            [targetMembership.user_id, 'Removed from trip', `You have been removed from trip ${tripId}.`, JSON.stringify({ trip_id: tripId })]
+            `INSERT INTO notifications (recipient_user_id, trip_id, type, title, body, metadata, created_at)
+             VALUES (?, ?, 'trip_removed', ?, ?, ?, NOW())`,
+            [targetMembership.user_id, tripId, 'Removed from trip', `You have been removed from trip ${tripId}.`, JSON.stringify({})]
           );
         } catch (nErr) { console.warn('Notification failed:', nErr.message); }
       }

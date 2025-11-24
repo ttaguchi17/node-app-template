@@ -40,6 +40,14 @@ tryMount('/api/notifications', './routes/notifications');
 tryMount('/api/events', './routes/events');
 tryMount('/api/emails', './routes/emails');
 
+try {
+  const mapsExport = require('./routes/mapsExport');
+  app.use('/maps', mapsExport);
+  console.log('✅ Mounted /maps -> ./routes/mapsExport');
+} catch (err) {
+  console.warn('⚠️  Could not mount /maps -> ./routes/mapsExport:', err.message);
+}
+
 // Health Check
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
