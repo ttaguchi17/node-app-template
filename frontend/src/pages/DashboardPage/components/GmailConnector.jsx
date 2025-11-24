@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 
-import BookingReviewModal from './BookingReviewModal.jsx';
-import AssignToTripModal from './AssignToTripModal.jsx';
+import BookingReviewModal from '../../../components/BookingReviewModal.jsx';
+import AssignToTripModal from '../../../components/AssignToTripModal.jsx';
+import { truncateEmail } from '../../../utils/textUtils';
 
 function GmailConnector() {
   const [status, setStatus] = useState({ connected: false, email: null, needs_reauth: false });
@@ -217,7 +218,7 @@ const handleSimpleScan = async () => {
       <>
         {/* --- This is the main "Connected" bar --- */}
         <div style={{ padding: '10px', background: '#e8f5e9', borderRadius: '5px', marginBottom: '15px' }}>
-          <strong>✅ Connected:</strong> {status.email}
+          <strong>✅ Connected:</strong> <span title={status.email}>{truncateEmail(status.email)}</span>
           {status.needs_reauth && (
             <button onClick={connectGmail} style={{ marginLeft: '10px' }} disabled={loading}>
               {loading ? 'Connecting...' : 'Re-authorize'}

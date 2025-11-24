@@ -1,5 +1,6 @@
 import React from 'react';
 import { Nav, Button } from 'react-bootstrap';
+import { Home, Calendar, DollarSign, User, Settings, HelpCircle, LogOut } from 'lucide-react';
 import voyagoLogo from '../assets/voyagologo.png'; // make sure this file exists at src/assets/voyagologo.png
 
 export default function Sidebar({
@@ -10,89 +11,91 @@ export default function Sidebar({
 }) {
   // Inline styles (no external CSS)
   const container = {
-    width: 240,
+    width: 260,
     minHeight: '100vh',
-    padding: '28px 18px',
+    padding: '32px 20px',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    gap: 16,
-    background: 'linear-gradient(180deg, #6f6be6 0%, #6ea9e8 100%)',
+    alignItems: 'stretch',
+    gap: 24,
+    background: 'linear-gradient(165deg, #4f46e5 0%, #3b82f6 50%, #06b6d4 100%)',
     color: '#fff',
     boxSizing: 'border-box',
-    boxShadow: 'inset -8px 0 24px rgba(0,0,0,0.04)'
+    position: 'relative',
+    boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)'
   };
 
   const logoBox = {
-    width: 84,
-    height: 84,
-    borderRadius: 16,
-    background: 'rgba(255,255,255,0.08)',
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    background: 'rgba(255, 255, 255, 0.15)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 8px 20px rgba(4,8,25,0.06)'
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
+    marginBottom: 4,
+    backdropFilter: 'blur(10px)'
   };
 
   const brandText = {
-    fontWeight: 700,
-    fontSize: 20,
+    fontWeight: 800,
+    fontSize: 22,
     marginTop: 8,
-    letterSpacing: 0.6,
-    textAlign: 'center'
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    color: '#fff',
+    textTransform: 'uppercase'
   };
 
   const navWrap = {
     width: '100%',
-    marginTop: 12,
+    marginTop: 16,
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
+    gap: 6,
     alignItems: 'stretch'
   };
 
   const navItemBase = {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
-    padding: '10px 14px',
-    borderRadius: 10,
+    gap: 14,
+    padding: '12px 16px',
+    borderRadius: 12,
     cursor: 'pointer',
-    userSelect: 'none'
-  };
-
-  const navIcon = {
-    minWidth: 28,
-    height: 28,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-    background: 'rgba(255,255,255,0.06)'
+    userSelect: 'none',
+    transition: 'all 0.2s ease',
+    fontWeight: 500,
+    fontSize: 15
   };
 
   const footer = {
     marginTop: 'auto',
     fontSize: 12,
-    opacity: 0.95,
+    opacity: 0.8,
     textAlign: 'center',
-    width: '100%'
+    width: '100%',
+    paddingTop: 16,
+    borderTop: '1px solid rgba(255, 255, 255, 0.2)'
   };
 
   const item = (id) => ({
     ...navItemBase,
-    background: active === id ? 'rgba(255,255,255,0.12)' : 'transparent',
-    color: '#fff'
+    background: active === id ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+    color: '#fff',
+    opacity: active === id ? 1 : 0.8,
+    fontWeight: active === id ? 700 : 500
   });
 
   return (
     <aside style={container}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
         <div style={logoBox}>
           <img
             src={voyagoLogo}
             alt="Voyago logo"
-            style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 10 }}
+            style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 8 }}
           />
         </div>
         <div style={brandText}>VOYAGO</div>
@@ -100,39 +103,56 @@ export default function Sidebar({
 
       <div style={navWrap}>
         <div style={item('dashboard')} onClick={() => onNavigate('dashboard')}>
-          <div style={navIcon}>🏠</div>
+          <Home size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Dashboard</div>
         </div>
 
         <div style={item('calendar')} onClick={() => onNavigate('calendar')}>
-          <div style={navIcon}>📅</div>
+          <Calendar size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Calendar</div>
         </div>
 
         <div style={item('budget')} onClick={() => onNavigate('budget')}>
-          <div style={navIcon}>💲</div>
+          <DollarSign size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Budget</div>
         </div>
 
         <div style={item('profile')} onClick={() => onNavigate('profile')}>
-          <div style={navIcon}>👤</div>
+          <User size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Profile</div>
         </div>
 
         <div style={item('settings')} onClick={() => onNavigate('settings')}>
-          <div style={navIcon}>⚙️</div>
+          <Settings size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Settings</div>
         </div>
 
         <div style={item('support')} onClick={() => onNavigate('support')}>
-          <div style={navIcon}>❓</div>
+          <HelpCircle size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Support</div>
         </div>
       </div>
 
       <div style={footer}>
-        <div style={{ marginBottom: 8 }}>
-          <Button variant="outline-light" size="sm" onClick={onLogout} style={{ borderRadius: 8 }}>
+        <div style={{ marginBottom: 12 }}>
+          <Button 
+            variant="outline-light" 
+            size="sm" 
+            onClick={onLogout} 
+            style={{ 
+              borderRadius: 10, 
+              width: '100%',
+              padding: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <LogOut size={16} />
             Log Out
           </Button>
         </div>

@@ -3,8 +3,8 @@ import React from 'react';
 import { Navbar, Nav, Button } from 'react-bootstrap'; 
 import NotificationsBell from './NotificationsBell.jsx'; // Ensure this path is correct
 
-// 1. ADD 'user' to the props list
-function Header({ onToggleSidebar, onNewTripClick, onRefreshClick, onLogoutClick, user }) {
+// 1. ADD 'user' and 'pageTitle' to the props list
+function Header({ onToggleSidebar, onNewTripClick, onRefreshClick, onLogoutClick, user, pageTitle = 'Dashboard' }) {
   return (
     <Navbar bg="white" expand className="topbar mb-4 static-top shadow">
       
@@ -19,7 +19,7 @@ function Header({ onToggleSidebar, onNewTripClick, onRefreshClick, onLogoutClick
 
       {/* Page Title */}
       <Navbar.Brand href="#home" className="h5 mb-0 text-gray-800">
-        My Trips
+        {pageTitle}
       </Navbar.Brand>
 
       {/* Nav container. 'ms-auto' pushes it to the right. */}

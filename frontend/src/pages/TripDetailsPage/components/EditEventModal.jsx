@@ -1,36 +1,33 @@
-// src/components/EditEventModal.jsx
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col, Alert, InputGroup } from 'react-bootstrap';
-import { apiPatch } from '../../../utils/api';// Helper: Format date for datetime-local input
+import { apiPatch, apiPost } from '../../../utils/api'; // Added apiPost
+
+// Helper: Format date for datetime-local input
 const formatDateTimeLocal = (isoString) => {
-  if (!isoString) return '';
-  try {
-    // This correctly handles local timezones from an ISO string
-    const date = new Date(isoString);
+  if (!isoString) return '';
+  try {
+    const date = new Date(isoString);
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    // Returns YYYY-MM-DDTHH:mm
     return `${year}-${month}-${day}T${hours}:${minutes}`;
-  } catch (e) {
-    console.error("Failed to format date:", isoString, e);
-    return '';
-  }
+  } catch (e) {
+    return '';
+  }
 };
 
-// This is the default "empty" state for a new event
 const defaultFormState = {
-  // Top-level SQL fields
   title: '',
   type: 'Activity',
   start_time: '',
   end_time: '',
   location_input: '',
   cost: 0,
+  is_private: false, // <--- Added Privacy Default
   
-  // Fields that live inside the 'details' JSON
+  // Detailed fields
   booking_reference: '',
   airline: '',
   departure_airport: '',
@@ -39,89 +36,91 @@ const defaultFormState = {
   address: '',
   check_in_date: '',
   check_out_date: '',
-  manual_details_text: '', // For non-imported events
+  manual_details_text: '',
 };
 
+export default function EditEventModal({ event, tripId, show, onClose, onEventUpdated, currentUserId }) {
+  const [formData, setFormData] = useState(defaultFormState);
+  const [isImported, setIsImported] = useState(false); 
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Check if current user is the creator of this event
+  const isCreator = !event || !event.event_id || String(event.created_by) === String(currentUserId);
 
-export default function EditEventModal({ event, tripId, show, onClose, onEventUpdated }) {
-  // --- State for the Form Fields ---
-  const [formData, setFormData] = useState(defaultFormState);
-  const [isImported, setIsImported] = useState(false); // Is this a Gmail event?
-  const [message, setMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // --- useEffect to pre-fill the form when 'event' changes ---
-  useEffect(() => {
+  useEffect(() => {
     setMessage('');
-    if (event && event.event_id) { // Check if we are editing an existing event
+    if (event && (event.event_id || event.id)) { 
       let details = {};
       let isImportedEvent = false;
 
-      // 1. Try to parse 'details'
+      // --- 1. ROBUST JSON PARSING ---
       try {
-        details = JSON.parse(event.details);
-        isImportedEvent = true;
+        const parsed = JSON.parse(event.details);
+        // It is only "Imported" if it is a real object with keys
+        if (typeof parsed === 'object' && parsed !== null) {
+            details = parsed;
+            // Check for specific keys to decide if it's a rich object
+            isImportedEvent = !!(parsed.airline || parsed.hotel_name || parsed.booking_reference || parsed.departure_airport);
+        } else {
+            details = { manual_details_text: String(parsed) };
+        }
       } catch (e) {
-        // It's not JSON, just a manual string
         details = { manual_details_text: event.details || '' };
       }
+      
       setIsImported(isImportedEvent);
 
-      // 2. Set the "flattened" form data
       setFormData({
-        ...defaultFormState, // Start with defaults
-        ...details, // Add all keys from the parsed JSON
-        
-        // 3. Override with top-level SQL data (the "source of truth")
-        title: event.title || '',
+        ...defaultFormState,
+        ...details, 
+        title: event.title || event.name || '',
         type: event.type || 'Activity',
-        start_time: formatDateTimeLocal(event.start_time), // <-- This will now work
-        end_time: formatDateTimeLocal(event.end_time),     // <-- This will now work
-        location_input: event.location_input || '',
+        start_time: formatDateTimeLocal(event.start_time),
+        end_time: formatDateTimeLocal(event.end_time),
+        location_input: event.location_input || event.location_display_name || '',
         cost: event.cost || 0,
-        manual_details_text: details.manual_details_text || '',
+        manual_details_text: details.manual_details_text || details.notes || '',
+        is_private: event.is_private === 1 || event.is_private === true, // <--- Load Privacy
       });
-    } else {
-      // We are creating a NEW manual event
+    } else {
       setFormData(defaultFormState);
       setIsImported(false);
     }
-  }, [event, show]); // Re-fill form every time modal is shown
+  }, [event, show]);
 
-  // Single change handler for all fields
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    const val = type === 'checkbox' || type === 'switch' ? checked : value; // Handle Switch/Checkbox
+    setFormData(prev => ({ ...prev, [name]: val }));
   };
 
-  // --- Form Submit Handler ---
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage('');
 
-    if (!formData.title || !formData.start_time) {
-      setMessage('Event Name and Start Time are required.');
-      setIsLoading(false);
-      return;
-    }
-    
-    // 1. Build the top-level payload for our SQL columns
-    const payload = {
-      title: formData.title,
-      type: formData.type,
-      start_time: new Date(formData.start_time).toISOString(), // Convert local time back to ISO
-      end_time: formData.end_time ? new Date(formData.end_time).toISOString() : null,
-      location_input: formData.location_input,
+    if (!formData.title || !formData.start_time) {
+      setMessage('Event Name and Start Time are required.');
+      setIsLoading(false);
+      return;
+    }
+    
+    // --- 2. BUILD PAYLOAD ---
+    const payload = {
+      title: formData.title,
+      type: formData.type,
+      start_time: new Date(formData.start_time).toISOString(),
+      end_time: formData.end_time ? new Date(formData.end_time).toISOString() : null,
+      location_input: formData.location_input,
       cost: Number(formData.cost) || 0,
-      details: '' // We will build this next
-    };
+      is_private: formData.is_private, // <--- Send Privacy Flag
+      details: '' 
+    };
 
-    // 2. Re-build the 'details' field
-    if (isImported) {
-      // Re-create the JSON object from the form state
-      const detailsObj = {
-        // We only save *details* data here, not top-level data
+    // --- 3. SMART SAVE LOGIC ---
+    // Collect all possible detail fields
+    const detailsObj = {
         booking_reference: formData.booking_reference,
         airline: formData.airline,
         departure_airport: formData.departure_airport,
@@ -130,95 +129,125 @@ export default function EditEventModal({ event, tripId, show, onClose, onEventUp
         address: formData.address,
         check_in_date: formData.check_in_date,
         check_out_date: formData.check_out_date,
-        nights: formData.nights
-      };
-      // Only add keys that have a value
-      const cleanDetails = Object.fromEntries(
-        Object.entries(detailsObj).filter(([_, v]) => v)
-      );
-      payload.details = JSON.stringify(cleanDetails, null, 2);
+        nights: formData.nights,
+        notes: formData.manual_details_text 
+    };
+
+    // Filter out empty keys
+    const cleanDetails = Object.fromEntries(
+        Object.entries(detailsObj).filter(([_, v]) => v && String(v).trim() !== '')
+    );
+
+    // If we have structured data (more than just notes), save as JSON
+    if (Object.keys(cleanDetails).length > 0) {
+         payload.details = JSON.stringify(cleanDetails);
     } else {
-      // It's a manual event, just save the text
-      payload.details = formData.manual_details_text;
+         payload.details = formData.manual_details_text;
     }
 
     try {
-      await apiPatch(`/api/trips/${tripId}/events/${event.event_id}`, payload);
+      if (event && (event.event_id || event.id)) {
+        await apiPatch(`/api/trips/${tripId}/events/${event.event_id || event.id}`, payload);
+      } else {
+        await apiPost(`/api/trips/${tripId}/events`, payload);
+      }
 
-      // Success!
       setIsLoading(false);
-      onEventUpdated(); // Tell the parent page to refresh
-      onClose(); // Close this modal
+      onEventUpdated();
+      onClose();
 
     } catch (err) {
       console.error('Update event error:', err);
       setMessage(err.message);
       setIsLoading(false);
     }
-  };  if (!event) return null;
+  };
 
-  return (
-    <Modal show={show} onHide={onClose} centered size="lg">
-      <Modal.Header closeButton>
-        {/* Title is now dynamic */}
-        <Modal.Title>{event.event_id ? 'Edit Event' : 'Create New Event'}</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form onSubmit={handleSubmit}>
-          {message && <Alert variant="danger">{message}</Alert>}
+  if (!show) return null;
 
-          {/* --- TOP-LEVEL FIELDS (Always Editable) --- */}
-          <Form.Group className="mb-3">
-            <Form.Label>Event Name</Form.Label>
-            <Form.Control type="text" name="title" value={formData.title} onChange={handleChange} required />
-          </Form.Group>
+  return (
+    <Modal show={show} onHide={onClose} centered size="lg">
+      <Modal.Header closeButton>
+        <Modal.Title>{event ? 'Edit Event' : 'Create New Event'}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form onSubmit={handleSubmit}>
+          {message && <Alert variant="danger">{message}</Alert>}
 
-          <Form.Group className="mb-3">
-            <Form.Label>Event Type</Form.Label>
-            <Form.Select name="type" value={formData.type} onChange={handleChange} disabled={isImported}>
-              <option value="Activity">Activity</option>
-              <option value="Flight">Flight</option>
-              <option value="Hotel">Hotel</option>
-              <option value="Transport">Transport</option>
-              <option value="Restaurant">Restaurant</option>
-              <option value="Other">Other</option>
-            </Form.Select>
-          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Event Name</Form.Label>
+            <Form.Control type="text" name="title" value={formData.title} onChange={handleChange} required />
+          </Form.Group>
 
-          <Row>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>Start Time</Form.Label>
-                <Form.Control type="datetime-local" name="start_time" value={formData.start_time} onChange={handleChange} required />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>End Time (Optional)</Form.Label>
-                <Form.Control type="datetime-local" name="end_time" value={formData.end_time} onChange={handleChange} />
-              </Form.Group>
-            </Col>
-          </Row>
+          <Row>
+            <Col md={6}>
+                <Form.Group className="mb-3">
+                    <Form.Label>Event Type</Form.Label>
+                    <Form.Select name="type" value={formData.type} onChange={handleChange} disabled={isImported}>
+                    <option value="Activity">Activity</option>
+                    <option value="Flight">Flight</option>
+                    <option value="Hotel">Hotel</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Restaurant">Restaurant</option>
+                    <option value="Other">Other</option>
+                    </Form.Select>
+                </Form.Group>
+            </Col>
+            <Col md={6}>
+                {/* --- PRIVACY TOGGLE UI --- */}
+                <Form.Group className="mb-3 bg-light p-2 rounded border h-75 d-flex align-items-center">
+                    <Form.Check 
+                        type="switch"
+                        id="privacy-switch"
+                        name="is_private"
+                        label={formData.is_private ? "🔒 Private" : "🌍 Public"}
+                        checked={formData.is_private}
+                        onChange={handleChange}
+                        disabled={!isCreator}
+                    />
+                    <span className="ms-2 text-muted small">
+                        {!isCreator 
+                          ? "(Only the creator can change this)" 
+                          : formData.is_private ? "(Only you can see this)" : "(Visible to group)"}
+                    </span>
+                </Form.Group>
+            </Col>
+          </Row>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Location (Optional)</Form.Label>
-            <Form.Control type="text" placeholder="e.g., Eiffel Tower" name="location_input" value={formData.location_input} onChange={handleChange} />
-          </Form.Group>
-          
-          <Form.Group className="mb-3">
-            <Form.Label>Cost (for Budgeting)</Form.Label>
-            <InputGroup>
-              <InputGroup.Text>$</InputGroup.Text>
-              <Form.Control type="number" name="cost" value={formData.cost} onChange={handleChange} placeholder="0.00" step="0.01" />
-            </InputGroup>
-           </Form.Group>
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Start Time</Form.Label>
+                <Form.Control type="datetime-local" name="start_time" value={formData.start_time} onChange={handleChange} required />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>End Time (Optional)</Form.Label>
+                <Form.Control type="datetime-local" name="end_time" value={formData.end_time} onChange={handleChange} />
+              </Form.Group>
+            </Col>
+          </Row>
 
-          {/* --- "SMART" DETAILS SECTION --- */}
-          <Form.Label>{isImported ? 'Imported Details' : 'Description / Details (Optional)'}</Form.Label>
-          <div className="p-3" style={{ backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
-            {isImported ? (
-            <>
-              {/* Show special fields for imported types */}
+          <Form.Group className="mb-3">
+            <Form.Label>Location (Optional)</Form.Label>
+            <Form.Control type="text" placeholder="e.g., Eiffel Tower" name="location_input" value={formData.location_input} onChange={handleChange} />
+          </Form.Group>
+          
+          <Form.Group className="mb-3">
+            <Form.Label>Cost (for Budgeting)</Form.Label>
+            <InputGroup>
+              <InputGroup.Text>$</InputGroup.Text>
+              <Form.Control type="number" name="cost" value={formData.cost} onChange={handleChange} placeholder="0.00" step="0.01" />
+            </InputGroup>
+           </Form.Group>
+
+          {/* --- DYNAMIC DETAILS SECTION --- */}
+          <hr />
+          <Form.Label className="text-muted small fw-bold text-uppercase">Detailed Info</Form.Label>
+          <div className="p-3 mb-3" style={{ backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
+            
+              {/* FLIGHT FIELDS */}
               {formData.type === 'Flight' && (
                 <Row>
                   <Col md={6}>
@@ -247,49 +276,55 @@ export default function EditEventModal({ event, tripId, show, onClose, onEventUp
                   </Col>
                 </Row>
               )}
+
+              {/* HOTEL FIELDS */}
               {formData.type === 'Hotel' && (
-                <>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Hotel Name</Form.Label>
-                    <Form.Control type="text" name="hotel_name" value={formData.hotel_name} onChange={handleChange} />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Address</Form.Label>
-                    <Form.Control type="text" name="address" value={formData.address} onChange={handleChange} />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Booking Reference</Form.Label>
-                    <Form.Control type="text" name="booking_reference" value={formData.booking_reference} onChange={handleChange} />
-                  </Form.Group>
-                </>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Hotel Name</Form.Label>
+                      <Form.Control type="text" name="hotel_name" value={formData.hotel_name} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Address</Form.Label>
+                      <Form.Control type="text" name="address" value={formData.address} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Booking Reference</Form.Label>
+                      <Form.Control type="text" name="booking_reference" value={formData.booking_reference} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                </Row>
               )}
-              {/* You can add more 'if' blocks here for other types */}
-            </>
-            ) : (
-            // It's a manual event, show a simple text area
-            <Form.Group controlId="editEventDetails">
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="e.g., Confirmation #12345"
-                name="manual_details_text"
-                value={formData.manual_details_text}
-                onChange={handleChange}
-              />
-            </Form.Group>
-            )}
+
+            {/* GENERIC NOTES (Always visible) */}
+            <Form.Group controlId="editEventDetails" className="mt-2">
+              <Form.Label>Notes / Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Additional details..."
+                name="manual_details_text"
+                value={formData.manual_details_text}
+                onChange={handleChange}
+              />
+            </Form.Group>
           </div>
-          
-          <div className="d-flex justify-content-end mt-4">
-             <Button variant="outline-secondary" onClick={onClose} className="me-2">
-                Cancel
-             </Button>
-             <Button variant="primary" type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Changes'}
-             </Button>
-          </div>
-        </Form>
-      </Modal.Body>
-    </Modal>
-  );
+          
+          <div className="d-flex justify-content-end mt-4">
+             <Button variant="outline-secondary" onClick={onClose} className="me-2">
+                Cancel
+             </Button>
+             <Button variant="primary" type="submit" disabled={isLoading}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
+             </Button>
+          </div>
+        </Form>
+      </Modal.Body>
+    </Modal>
+  );
 }

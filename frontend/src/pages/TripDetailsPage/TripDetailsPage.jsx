@@ -179,6 +179,7 @@ export default function TripDetailsPage() {
         tripId={trip?.trip_id}
         event={eventToEdit}
         onEventUpdated={handleEventUpdated}
+        currentUserId={user?.user_id}
       />
     </Layout>
   );

@@ -4,6 +4,7 @@ import {
   Card, Button, Modal, Form, ListGroup, Spinner, Badge, InputGroup,
 } from 'react-bootstrap';
 import { apiGet, apiPost, apiDelete } from '../../../utils/api';
+import { truncateEmail } from '../../../utils/textUtils';
 
 export default function TripMembersBox({ trip, currentUser }) {
   const [showModal, setShowModal] = useState(false);
@@ -303,11 +304,11 @@ export default function TripMembersBox({ trip, currentUser }) {
 
               return (
                 <ListGroup.Item key={m.id} className="d-flex justify-content-between align-items-center px-0">
-                  <div>
-                    <div className="fw-bold" style={{ fontSize: '0.9rem' }}>
+                  <div style={{ minWidth: 0, flex: 1, marginRight: '8px' }}>
+                    <div className="fw-bold text-truncate-custom" style={{ fontSize: '0.9rem' }}>
                       {m.name} {isMe ? '(You)' : ''}
                     </div>
-                    <div className="text-muted" style={{ fontSize: '0.75rem' }}>{m.email}</div>
+                    <div className="text-muted" style={{ fontSize: '0.75rem' }} title={m.email}>{truncateEmail(m.email)}</div>
                   </div>
                   <div className="d-flex align-items-center gap-2">
                     {renderStatusBadge(m)}
@@ -355,9 +356,11 @@ export default function TripMembersBox({ trip, currentUser }) {
             <div className="mt-2 d-flex flex-wrap gap-2">
               {enteredEmails.map((e) => (
                 <Badge key={e.email} bg="light" text="dark" className="border d-flex align-items-center">
-                  {e.matchedUser?.name || e.email}
+                  <span title={e.matchedUser?.name || e.email}>
+                    {e.matchedUser?.name || truncateEmail(e.email)}
+                  </span>
                   <span
-                    style={{ cursor: 'pointer', marginLeft: '8px', fontWeight: 'bold' }}
+                    style={{ cursor: 'pointer', marginLeft: '8px', fontWeight: 'bold', flexShrink: 0 }}
                     onClick={() => removeEmail(e.email)}
                     aria-hidden
                   >

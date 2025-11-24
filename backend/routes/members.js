@@ -41,6 +41,7 @@ router.get('/', authenticateToken, async (req, res) => {
       // FIX: Use email as fallback for name
       const name = r.name ?? r.full_name ?? r.email ?? 'Pending User';
       const email = r.email ?? 'Pending Email';
+      const budgetGoal = parseFloat(r.budget_goal) || 1000.00;
 
       return {
         id: membershipId,
@@ -49,6 +50,7 @@ router.get('/', authenticateToken, async (req, res) => {
         email,
         role: r.role,
         status: r.status,
+        budget_goal: budgetGoal,
       };
     });
 
@@ -202,6 +204,58 @@ router.patch('/:userId', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Error updating role.' });
   } finally {
     conn.release();
+  }
+});
+
+/**
+ * @route   PUT /api/trips/:tripId/members/:userId/budget
+ * @desc    Update a member's budget goal
+ */
+router.put('/:userId/budget', authenticateToken, async (req, res) => {
+  const { tripId, userId } = req.params;
+  const { budget_goal } = req.body;
+
+  // Validate budget_goal
+  if (budget_goal === undefined || isNaN(budget_goal) || budget_goal < 0) {
+    return res.status(400).json({ message: 'Invalid budget_goal value.' });
+  }
+
+  try {
+    // Check if user is updating their own budget or is an organizer
+    const [requester] = await pool.execute(
+      `SELECT role FROM trip_membership WHERE trip_id = ? AND user_id = ?`,
+      [tripId, req.user.user_id]
+    );
+
+    if (!requester.length) {
+      return res.status(403).json({ message: 'Access denied.' });
+    }
+
+    const isOrganizer = ['owner', 'organizer'].includes(requester[0].role);
+    const isOwnBudget = String(userId) === String(req.user.user_id);
+
+    if (!isOrganizer && !isOwnBudget) {
+      return res.status(403).json({ message: 'You can only update your own budget.' });
+    }
+
+    // Update the budget_goal
+    const [result] = await pool.execute(
+      `UPDATE trip_membership SET budget_goal = ? WHERE trip_id = ? AND user_id = ?`,
+      [budget_goal, tripId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Member not found.' });
+    }
+
+    res.json({ 
+      message: 'Budget updated successfully.', 
+      userId, 
+      budget_goal: parseFloat(budget_goal) 
+    });
+  } catch (err) {
+    console.error('Update budget error:', err);
+    res.status(500).json({ message: 'Error updating budget.' });
   }
 });
 

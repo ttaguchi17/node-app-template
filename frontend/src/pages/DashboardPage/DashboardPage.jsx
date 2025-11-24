@@ -6,7 +6,7 @@ import Layout from '../../components/Layout.jsx';
 import NewTripModal from './components/NewTripModal.jsx';
 import TripList from './components/TripList.jsx';
 import TripDetailsModal from '../../components/TripDetailsModal.jsx';
-import GmailConnector from '../../components/GmailConnector.jsx';
+import GmailModal from './components/GmailModal.jsx';
 import { useDashboard } from './useDashboard.js';
 
 import voyagoLogo from '../../assets/voyagologo.png';
@@ -83,6 +83,9 @@ export default function DashboardPage() {
     }
   };
 
+  // Gmail modal state
+  const [showGmailModal, setShowGmailModal] = useState(false);
+
   // keep sidebar toggle support in case Layout uses it
   const [isSidebarToggled, setIsSidebarToggled] = useState(false);
   const toggleSidebar = () => setIsSidebarToggled(!isSidebarToggled);
@@ -137,22 +140,6 @@ export default function DashboardPage() {
         {/* Main content */}
         <div style={{ display: 'flex', gap: 24 }}>
           <main style={{ flex: 1 }}>
-            {/* Top toolbar: only shows GmailConnector on the right now */}
-            <div className="d-flex align-items-center justify-content-between mb-3">
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <img src={voyagoLogo} alt="Voyago" style={{ width: 52, height: 52, borderRadius: 8 }} />
-                <div>
-                  <h1 className="h3 mb-0 text-gray-800">Dashboard</h1>
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>Welcome — here's your summary</div>
-                </div>
-              </div>
-
-              {/* Top-right: only GmailConnector (no Refresh / New Trip here) */}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <GmailConnector />
-              </div>
-            </div>
-
             <HeroBanner
               backgroundImage={heroImage}
               title="Welcome Back!"
@@ -191,6 +178,7 @@ export default function DashboardPage() {
                   <Card.Body>
                     <h6>Quick Actions</h6>
                     <div className="d-flex flex-column gap-2 mt-3">
+                      <Button onClick={() => setShowGmailModal(true)} variant="primary">📧 Scan Gmail for Bookings</Button>
                       <Button onClick={() => window.alert('Add Event — wire to modal')} variant="outline-primary">+ Add Event</Button>
                       <Button onClick={() => go('/calendar')} variant="outline-secondary">View Calendar</Button>
                     </div>
@@ -224,6 +212,11 @@ export default function DashboardPage() {
         onClose={closeDetailsModal}
         trip={selectedTrip}
         deleteEvent={handleDeleteEvent}
+      />
+
+      <GmailModal
+        show={showGmailModal}
+        onClose={() => setShowGmailModal(false)}
       />
     </>
   );

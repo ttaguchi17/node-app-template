@@ -1,4 +1,61 @@
 // frontend/src/components/exportBookmarks.jsx
+
+/**
+ * Build KML string from trip and events data
+ * @param {Object} options - { trip, events }
+ * @returns {string} KML XML string
+ */
+export function buildKml({ trip, events = [] }) {
+  const escapeXml = (str) => {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  let placemarks = '';
+
+  // Add trip location if it exists
+  if (trip && trip.latitude != null && trip.longitude != null) {
+    placemarks += `
+    <Placemark>
+      <name>${escapeXml(trip.name || trip.title || 'Trip Location')}</name>
+      <description>${escapeXml(trip.location_display_name || trip.location_input || '')}</description>
+      <Point>
+        <coordinates>${Number(trip.longitude)},${Number(trip.latitude)},0</coordinates>
+      </Point>
+    </Placemark>`;
+  }
+
+  // Add events with coordinates
+  events.forEach(event => {
+    if (event.latitude != null && event.longitude != null) {
+      placemarks += `
+    <Placemark>
+      <name>${escapeXml(event.title || 'Event')}</name>
+      <description>${escapeXml(event.type || '')} - ${escapeXml(event.location_display_name || event.location_input || '')}</description>
+      <Point>
+        <coordinates>${Number(event.longitude)},${Number(event.latitude)},0</coordinates>
+      </Point>
+    </Placemark>`;
+    }
+  });
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${escapeXml(trip?.name || trip?.title || 'Trip Bookmarks')}</name>
+    <description>Bookmarks for ${escapeXml(trip?.name || trip?.title || 'trip')}</description>
+${placemarks}
+  </Document>
+</kml>`;
+
+  return kml;
+}
+
 export function downloadKmlFile(kmlString, filename = 'trip-bookmarks.kml') {
   try {
     if (!kmlString || typeof kmlString !== 'string') {

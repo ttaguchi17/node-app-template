@@ -139,13 +139,14 @@ router.post('/:invitationId/respond', authenticateToken, async (req, res) => {
     try {
       if (inv.invited_by_user_id) {
         await conn.execute(
-          `INSERT INTO notifications (recipient_user_id, type, title, body, metadata, created_at)
-           VALUES (?, 'invite_response', ?, ?, ?, NOW())`,
+          `INSERT INTO notifications (recipient_user_id, trip_id, type, title, body, metadata, created_at)
+           VALUES (?, ?, 'invite_response', ?, ?, ?, NOW())`,
           [
             inv.invited_by_user_id,
+            inv.trip_id,
             `Invitation ${newStatus}`,
             `${req.user?.name || req.user?.email || 'A user'} ${newStatus} your invite to trip ${inv.trip_id}`,
-            JSON.stringify({ trip_id: inv.trip_id, invitation_id: invitationId, response: newStatus })
+            JSON.stringify({ invitation_id: invitationId, response: newStatus })
           ]
         );
       }

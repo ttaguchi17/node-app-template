@@ -12,7 +12,6 @@ const geocodeLocation = require("../services/geocoding");
 function parseToISO(value) {
   if (!value) return null;
   try {
-    // If it already looks like an ISO with 'T', just validate it
     const d = new Date(value);
     if (isNaN(d.getTime())) return null;
     return d.toISOString();
@@ -23,7 +22,8 @@ function parseToISO(value) {
 
 /**
  * GET /api/trips/:tripId/events
- * Get all events for a specific trip
+ * Get events for a trip.
+ * LOGIC: Returns Public events + Private events created by the requester.
  */
 router.get("/", authenticateToken, async (req, res) => {
   const { tripId } = req.params;
@@ -39,10 +39,17 @@ router.get("/", authenticateToken, async (req, res) => {
       return res.status(403).json({ message: "Access denied to this trip." });
     }
 
-    // Fetch events
+    // Fetch events with Privacy Filter
     const [events] = await pool.execute(
-      `SELECT * FROM itinerary_event WHERE trip_id = ? ORDER BY start_time ASC`,
-      [tripId]
+      `SELECT * FROM itinerary_event 
+       WHERE trip_id = ? 
+       AND (
+         is_private = FALSE 
+         OR 
+         (is_private = TRUE AND created_by = ?)
+       )
+       ORDER BY start_time ASC`,
+      [tripId, user_id]
     );
 
     return res.json({ success: true, events });
@@ -98,18 +105,17 @@ router.post("/", authenticateToken, async (req, res) => {
     const title = body.title || body.hotel_name || body.airline || `${type} Booking`;
     const location_input = body.address || body.hotel_name || body.departure_airport || body.location_input || null;
     const cost = body.price_usd || body.cost || 0.0;
+    
+    // Privacy: Default to false, unless specified (Gmail import might set this to true)
+    const isPrivate = (body.is_private || body.id) ? 1 : 0;
 
-    // Dates - prefer well-formed ISO, else try parse
-    let start_time = body.check_in_date || body.departure_date || body.start_time || null;
-    let end_time = body.check_out_date || body.arrival_date || body.end_time || null;
+    // Dates
+    let start_time = parseToISO(body.check_in_date || body.departure_date || body.start_time);
+    let end_time = parseToISO(body.check_out_date || body.arrival_date || body.end_time);
 
-    start_time = parseToISO(start_time);
-    end_time = parseToISO(end_time);
-
-    // Prepare details: full JSON for imports, otherwise provided details
     const details = body.id ? JSON.stringify(body) : (body.details ? JSON.stringify(body.details) : null);
 
-    // Geocode if we have an input location
+    // Geocode
     let location_display_name = null;
     let latitude = null;
     let longitude = null;
@@ -124,17 +130,16 @@ router.post("/", authenticateToken, async (req, res) => {
           location_display_name = location_input;
         }
       } catch (e) {
-        // Geocoding failure shouldn't block event creation
-        console.warn("Geocoding error: ", e && e.message ? e.message : e);
+        console.warn("Geocoding error: ", e.message);
         location_display_name = location_input;
       }
     }
 
-    // Insert event
+    // Insert event with created_by and is_private
     const [result] = await connection.execute(
       `INSERT INTO itinerary_event 
-        (trip_id, title, type, start_time, end_time, location_input, location_display_name, latitude, longitude, details, cost)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (trip_id, title, type, start_time, end_time, location_input, location_display_name, latitude, longitude, details, cost, created_by, is_private)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tripId,
         title,
@@ -147,6 +152,8 @@ router.post("/", authenticateToken, async (req, res) => {
         longitude,
         details,
         cost,
+        user_id,   // <-- Set Creator
+        isPrivate  // <-- Set Privacy
       ]
     );
 
@@ -177,27 +184,44 @@ router.post("/", authenticateToken, async (req, res) => {
 router.patch("/:eventId", authenticateToken, async (req, res) => {
   const { tripId, eventId } = req.params;
   const { user_id } = req.user;
-  const { title, type, start_time, end_time, location_input, cost, details } = req.body || {};
+  const { title, type, start_time, end_time, location_input, cost, details, is_private } = req.body || {};
 
   let connection;
   try {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Verify ownership (user is on trip)
-    const [ownerRows] = await connection.execute(
-      `SELECT 1 FROM itinerary_event ie
-       JOIN trip_membership tm ON ie.trip_id = tm.trip_id
-       WHERE ie.event_id = ? AND ie.trip_id = ? AND tm.user_id = ? LIMIT 1`,
-      [eventId, tripId, user_id]
+    // Verify ownership/access
+    // Note: For private events, usually only the creator can edit.
+    // For public events, any member can edit (depending on your rules).
+    const [eventCheck] = await connection.execute(
+      `SELECT created_by, is_private FROM itinerary_event WHERE event_id = ? AND trip_id = ?`,
+      [eventId, tripId]
     );
 
-    if (!ownerRows || ownerRows.length === 0) {
+    if (!eventCheck || eventCheck.length === 0) {
       await connection.rollback();
-      return res.status(403).json({ message: "Access denied or event not found." });
+      return res.status(404).json({ message: "Event not found." });
     }
 
-    // If location changed, re-geocode
+    // Check trip membership
+    const [membership] = await connection.execute(
+        `SELECT 1 FROM trip_membership WHERE user_id = ? AND trip_id = ?`,
+        [user_id, tripId]
+    );
+    if (!membership.length) {
+        await connection.rollback();
+        return res.status(403).json({ message: "Access denied." });
+    }
+
+    // Specific Privacy Check: If private, ONLY creator can edit
+    const existingEvent = eventCheck[0];
+    if (existingEvent.is_private && String(existingEvent.created_by) !== String(user_id)) {
+        await connection.rollback();
+        return res.status(403).json({ message: "You cannot edit this private event." });
+    }
+
+    // Geocoding logic
     let locationFields = "";
     const values = [];
 
@@ -212,21 +236,17 @@ router.patch("/:eventId", authenticateToken, async (req, res) => {
           values.push(location_input);
         }
       } catch (e) {
-        // If geocoding fails, still allow update but store raw input
         locationFields = `, location_display_name = ?, latitude = NULL, longitude = NULL`;
         values.push(location_input);
-        console.warn("Geocoding failed during update:", e && e.message ? e.message : e);
       }
     }
 
-    // sanitize numeric cost
+    // Build update
     const safeCost = cost !== undefined ? Number(cost) : null;
-
-    // Use parseToISO helper for dates
     const safeStart = parseToISO(start_time);
     const safeEnd = parseToISO(end_time);
+    const safePrivate = is_private !== undefined ? (is_private ? 1 : 0) : null;
 
-    // Build update statement
     const updateQuery = `
       UPDATE itinerary_event SET
         title = COALESCE(?, title),
@@ -235,7 +255,8 @@ router.patch("/:eventId", authenticateToken, async (req, res) => {
         end_time = COALESCE(?, end_time),
         location_input = COALESCE(?, location_input),
         cost = COALESCE(?, cost),
-        details = COALESCE(?, details)
+        details = COALESCE(?, details),
+        is_private = COALESCE(?, is_private)
         ${locationFields}
       WHERE event_id = ? AND trip_id = ?
     `;
@@ -248,18 +269,14 @@ router.patch("/:eventId", authenticateToken, async (req, res) => {
       location_input,
       safeCost,
       details,
+      safePrivate,
       ...values,
       eventId,
       tripId,
     ];
 
-    const [result] = await connection.execute(updateQuery, params);
-
+    await connection.execute(updateQuery, params);
     await connection.commit();
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Event not found." });
-    }
 
     const [updatedEventRows] = await connection.execute(
       "SELECT * FROM itinerary_event WHERE event_id = ?",
@@ -280,30 +297,44 @@ router.patch("/:eventId", authenticateToken, async (req, res) => {
 
 /**
  * DELETE /api/trips/:tripId/events/:eventId
- * Delete an event
  */
 router.delete("/:eventId", authenticateToken, async (req, res) => {
   const { eventId, tripId } = req.params;
   const { user_id } = req.user;
 
   try {
-    // Verify membership
-    const [ownerRows] = await pool.execute(
-      `SELECT 1 FROM trip_membership WHERE trip_id = ? AND user_id = ? LIMIT 1`,
-      [tripId, user_id]
+    // 1. Get event details to check ownership
+    const [rows] = await pool.execute(
+        `SELECT created_by, is_private FROM itinerary_event WHERE event_id = ? AND trip_id = ?`,
+        [eventId, tripId]
     );
-    if (!ownerRows || ownerRows.length === 0) {
-      return res.status(403).json({ message: "Access denied." });
+    
+    if (rows.length === 0) return res.status(404).json({ message: "Event not found" });
+    const event = rows[0];
+
+    // 2. Check permissions
+    const [membership] = await pool.execute(
+        `SELECT role FROM trip_membership WHERE user_id = ? AND trip_id = ?`,
+        [user_id, tripId]
+    );
+    if (!membership.length) return res.status(403).json({message: "Access Denied"});
+
+    const role = membership[0].role;
+    const isCreator = String(event.created_by) === String(user_id);
+    const isAdmin = ['owner', 'organizer'].includes(role);
+
+    // RULE: 
+    // - If Private: Only Creator can delete
+    // - If Public: Creator OR Admin can delete
+    if (event.is_private && !isCreator) {
+        return res.status(403).json({ message: "Only the creator can delete this private event." });
+    }
+    if (!event.is_private && !isCreator && !isAdmin) {
+        return res.status(403).json({ message: "You don't have permission to delete this event." });
     }
 
-    const [result] = await pool.execute(
-      "DELETE FROM itinerary_event WHERE event_id = ? AND trip_id = ?",
-      [eventId, tripId]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Event not found." });
-    }
+    // 3. Delete
+    await pool.execute("DELETE FROM itinerary_event WHERE event_id = ?", [eventId]);
 
     return res.status(200).json({ success: true, message: "Event deleted successfully." });
   } catch (error) {

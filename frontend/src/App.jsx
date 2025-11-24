@@ -7,7 +7,9 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import TripDetailsPage from './pages/TripDetailsPage/TripDetailsPage.jsx';
-import CalendarPage from './pages/CalendarPage.jsx'; // match exact filename/casing
+import CalendarPage from './pages/Calendar/CalendarPage.jsx'; // match exact filename/casing
+import BudgetPage from './pages/BudgetPage/BudgetPage.jsx';
+import GlobalBudgetPage from './pages/BudgetPage/GlobalBudgetPage.jsx';
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/trips/:tripId" element={<TripDetailsPage />} />
+         <Route path="/trips/:tripId/budget" element={<BudgetPage />} />
+        <Route path="/budget" element={<GlobalBudgetPage />} />
         </Route>
 
         {/* === 404 Catch-all Route === */}

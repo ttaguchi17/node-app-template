@@ -31,14 +31,13 @@ function tryMount(mountPath, modulePath) {
 
 // Core API routes (optional routes will be skipped if missing)
 tryMount('/api/auth', './routes/auth');
-tryMount('/api/trips', './routes/trips');
-// Mount invitations under /api/trips if you keep them as a separate router
-tryMount('/api/trips', './routes/invitations');
+tryMount('/api/trips', './routes/trips'); // This includes /api/trips/:tripId/invitations
 tryMount('/api/gmail', './routes/gmail');
 tryMount('/api/users', './routes/users');
 tryMount('/api/notifications', './routes/notifications');
 tryMount('/api/events', './routes/events');
 tryMount('/api/emails', './routes/emails');
+tryMount('/api/calendar', './routes/calendar');
 
 try {
   const mapsExport = require('./routes/mapsExport');
