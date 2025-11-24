@@ -92,7 +92,7 @@ export default function Sidebar({
           <img
             src={voyagoLogo}
             alt="Voyago logo"
-            style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 10 }}
+            style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 15 }}
           />
         </div>
         <div style={brandText}>VOYAGO</div>
@@ -100,32 +100,26 @@ export default function Sidebar({
 
       <div style={navWrap}>
         <div style={item('dashboard')} onClick={() => onNavigate('dashboard')}>
-          <div style={navIcon}>🏠</div>
           <div style={{ flex: 1 }}>Dashboard</div>
         </div>
 
         <div style={item('calendar')} onClick={() => onNavigate('calendar')}>
-          <div style={navIcon}>📅</div>
           <div style={{ flex: 1 }}>Calendar</div>
         </div>
 
         <div style={item('budget')} onClick={() => onNavigate('budget')}>
-          <div style={navIcon}>💲</div>
           <div style={{ flex: 1 }}>Budget</div>
         </div>
 
         <div style={item('profile')} onClick={() => onNavigate('profile')}>
-          <div style={navIcon}>👤</div>
           <div style={{ flex: 1 }}>Profile</div>
         </div>
 
         <div style={item('settings')} onClick={() => onNavigate('settings')}>
-          <div style={navIcon}>⚙️</div>
           <div style={{ flex: 1 }}>Settings</div>
         </div>
 
         <div style={item('support')} onClick={() => onNavigate('support')}>
-          <div style={navIcon}>❓</div>
           <div style={{ flex: 1 }}>Support</div>
         </div>
       </div>
