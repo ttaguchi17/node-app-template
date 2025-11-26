@@ -1,14 +1,29 @@
+// src/components/Sidebar.jsx
 import React from 'react';
-import { Nav, Button } from 'react-bootstrap';
-import voyagoLogo from '../assets/voyagologo.png'; // make sure this file exists at src/assets/voyagologo.png
+import { Button } from 'react-bootstrap';
+import { useNavigate, useLocation } from 'react-router-dom';
+import voyagoLogo from '../assets/voyagologo.png';
 
 export default function Sidebar({
-  active = 'dashboard',
-  isToggled = false,
-  onNavigate = () => {},
-  onLogout = () => {}
+  onLogout = () => {},
 }) {
-  // Inline styles (no external CSS)
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // derive active key from current path
+  const path = location.pathname || '/';
+  const active = path.startsWith('/profile')
+    ? 'profile'
+    : path.startsWith('/calendar')
+    ? 'calendar'
+    : path.startsWith('/budget')
+    ? 'budget'
+    : path.startsWith('/settings')
+    ? 'settings'
+    : path.startsWith('/support')
+    ? 'support'
+    : 'dashboard';
+
   const container = {
     width: 240,
     minHeight: '100vh',
@@ -20,7 +35,7 @@ export default function Sidebar({
     background: 'linear-gradient(180deg, #6f6be6 0%, #6ea9e8 100%)',
     color: '#fff',
     boxSizing: 'border-box',
-    boxShadow: 'inset -8px 0 24px rgba(0,0,0,0.04)'
+    boxShadow: 'inset -8px 0 24px rgba(0,0,0,0.04)',
   };
 
   const logoBox = {
@@ -31,7 +46,7 @@ export default function Sidebar({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 8px 20px rgba(4,8,25,0.06)'
+    boxShadow: '0 8px 20px rgba(4,8,25,0.06)',
   };
 
   const brandText = {
@@ -39,16 +54,16 @@ export default function Sidebar({
     fontSize: 20,
     marginTop: 8,
     letterSpacing: 0.6,
-    textAlign: 'center'
+    textAlign: 'center',
   };
 
   const navWrap = {
     width: '100%',
-    marginTop: 12,
+    marginTop: 22,   // adjusted spacing so nav sits correctly under VOYAGO
     display: 'flex',
     flexDirection: 'column',
     gap: 10,
-    alignItems: 'stretch'
+    alignItems: 'stretch',
   };
 
   const navItemBase = {
@@ -58,17 +73,7 @@ export default function Sidebar({
     padding: '10px 14px',
     borderRadius: 10,
     cursor: 'pointer',
-    userSelect: 'none'
-  };
-
-  const navIcon = {
-    minWidth: 28,
-    height: 28,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-    background: 'rgba(255,255,255,0.06)'
+    userSelect: 'none',
   };
 
   const footer = {
@@ -76,57 +81,65 @@ export default function Sidebar({
     fontSize: 12,
     opacity: 0.95,
     textAlign: 'center',
-    width: '100%'
+    width: '100%',
   };
 
   const item = (id) => ({
     ...navItemBase,
     background: active === id ? 'rgba(255,255,255,0.12)' : 'transparent',
-    color: '#fff'
+    color: '#fff',
   });
 
   return (
     <aside style={container}>
+      {/* Brand */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={logoBox}>
           <img
             src={voyagoLogo}
             alt="Voyago logo"
-            style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 15 }}
+            style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 12 }}
           />
         </div>
         <div style={brandText}>VOYAGO</div>
       </div>
 
+      {/* Navigation */}
       <div style={navWrap}>
-        <div style={item('dashboard')} onClick={() => onNavigate('dashboard')}>
+        <div style={item('dashboard')} onClick={() => navigate('/dashboard')}>
           <div style={{ flex: 1 }}>Dashboard</div>
         </div>
 
-        <div style={item('calendar')} onClick={() => onNavigate('calendar')}>
+        <div style={item('calendar')} onClick={() => navigate('/calendar')}>
           <div style={{ flex: 1 }}>Calendar</div>
         </div>
 
-        <div style={item('budget')} onClick={() => onNavigate('budget')}>
+        <div style={item('budget')} onClick={() => navigate('/budget')}>
           <div style={{ flex: 1 }}>Budget</div>
         </div>
 
-        <div style={item('profile')} onClick={() => onNavigate('profile')}>
+        <div style={item('profile')} onClick={() => navigate('/profile')}>
           <div style={{ flex: 1 }}>Profile</div>
         </div>
 
-        <div style={item('settings')} onClick={() => onNavigate('settings')}>
+        <div style={item('settings')} onClick={() => navigate('/settings')}>
           <div style={{ flex: 1 }}>Settings</div>
         </div>
 
-        <div style={item('support')} onClick={() => onNavigate('support')}>
+        <div style={item('support')} onClick={() => navigate('/support')}>
           <div style={{ flex: 1 }}>Support</div>
         </div>
       </div>
 
+      {/* Footer */}
       <div style={footer}>
         <div style={{ marginBottom: 8 }}>
-          <Button variant="outline-light" size="sm" onClick={onLogout} style={{ borderRadius: 8 }}>
+          <Button
+            variant="outline-light"
+            size="sm"
+            onClick={onLogout}
+            style={{ borderRadius: 8, padding: '6px 10px' }}
+          >
             Log Out
           </Button>
         </div>

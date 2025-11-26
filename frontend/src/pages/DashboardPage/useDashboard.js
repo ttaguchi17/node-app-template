@@ -28,6 +28,17 @@ function normalizeTrip(t) {
   return { ...t, location, title, start_date, end_date };
 }
 
+// utility to read common token keys from localStorage
+function readAuthToken() {
+  if (typeof window === 'undefined') return null;
+  return (
+    localStorage.getItem('auth_token') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('authToken') ||
+    null
+  );
+}
+
 // --- Main Hook ---
 export function useDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,32 +58,76 @@ export function useDashboard() {
   const fetchTrips = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    try {
-      const data = await apiGet('/api/trips');
-      const arr = Array.isArray(data)
-        ? data
-        : Array.isArray(data.trips)
-        ? data.trips
-        : Array.isArray(data.data)
-        ? data.data
-        : [];
 
-      const normalized = arr.map(normalizeTrip);
-      setTrips(normalized);
-      localStorage.setItem('cachedTrips', JSON.stringify(normalized)); // ✅ cache locally
+    // helper to parse response shapes into array
+    const normalizeResponseToArray = (data) => {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.trips)) return data.trips;
+      if (Array.isArray(data.data)) return data.data;
+      // some apis return { result: [...] }
+      if (Array.isArray(data.result)) return data.result;
+      return [];
+    };
+
+    try {
+      // Primary: prefer your apiGet util (keeps existing behavior)
+      try {
+        const data = await apiGet('/api/trips');
+        const arr = normalizeResponseToArray(data);
+        const normalized = arr.map(normalizeTrip);
+        setTrips(normalized);
+        localStorage.setItem('cachedTrips', JSON.stringify(normalized));
+        setIsLoading(false);
+        return;
+      } catch (primaryErr) {
+        // log primary error, then attempt fallback
+        console.warn('apiGet(/api/trips) failed:', primaryErr);
+      }
+
+      // Fallback: attempt direct fetch with Authorization header from localStorage
+      try {
+        const token = readAuthToken();
+        const headers = token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+        console.debug('Fallback fetching /api/trips with headers:', { hasToken: !!token });
+        const res = await fetch('/api/trips', { method: 'GET', headers });
+        if (!res.ok) {
+          // try to get response body for diagnosis
+          const txt = await res.text().catch(() => '');
+          const msg = `Fallback fetch /api/trips returned ${res.status}. ${txt ? `Body: ${txt}` : ''}`;
+          throw new Error(msg);
+        }
+        const data = await res.json().catch(() => null);
+        const arr = normalizeResponseToArray(data);
+        const normalized = arr.map(normalizeTrip);
+        setTrips(normalized);
+        localStorage.setItem('cachedTrips', JSON.stringify(normalized));
+        setIsLoading(false);
+        return;
+      } catch (fallbackErr) {
+        console.error('Fallback fetch /api/trips failed:', fallbackErr);
+        throw fallbackErr; // fall through to outer catch
+      }
     } catch (err) {
-      setError(err.message || 'Failed to load trips');
+      // Provide helpful error for UI and console
+      const message = (err && err.message) ? err.message : 'Failed to load trips';
+      console.error('fetchTrips error:', message);
+      setError(message);
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]); // ✅ stable reference
+  }, [navigate]);
 
   // --- Load Trips (only once) ---
   useEffect(() => {
     const cached = localStorage.getItem('cachedTrips');
     if (cached) {
-      setTrips(JSON.parse(cached));
-      setIsLoading(false);
+      try {
+        setTrips(JSON.parse(cached));
+        setIsLoading(false);
+      } catch (e) {
+        console.warn('Failed to parse cachedTrips, will refetch', e);
+      }
     }
 
     // Fetch latest in background
@@ -86,9 +141,10 @@ export function useDashboard() {
     try {
       await apiDelete(`/api/trips/${tripId}`);
       // ✅ Remove from state
-      setTrips(prev => prev.filter(t => (t.trip_id ?? t.id) !== tripId));
+      setTrips(prev => prev.filter(t => (String(t.trip_id ?? t.id) !== String(tripId))));
     } catch (err) {
-      setError(err.message);
+      console.error('deleteTrip error:', err);
+      setError(err.message || 'Failed to delete trip');
     }
   };
 
@@ -101,7 +157,7 @@ export function useDashboard() {
       return true;
     } catch (err) {
       console.error('deleteEvent error:', err);
-      setError(err.message);
+      setError(err.message || 'Failed to delete event');
       return false;
     }
   };
@@ -133,7 +189,12 @@ export function useDashboard() {
   // --- Other handlers ---
   const handleRefresh = useCallback(() => fetchTrips(), [fetchTrips]);
   const handleLogout = useCallback(() => {
-    localStorage.removeItem('token');
+    // remove several common token keys to be safe
+    try {
+      ['auth_token', 'token', 'authToken', 'voyago_user', 'cachedTrips'].forEach(k => localStorage.removeItem(k));
+    } catch (e) {
+      console.warn('handleLogout localStorage cleanup failed', e);
+    }
     navigate('/login');
   }, [navigate]);
 
