@@ -286,17 +286,7 @@ export default function DashboardPage() {
                   </Card.Body>
                 </Card>
 
-                {/* Recent activity remains unchanged */}
-                <Card className="shadow-sm">
-                  <Card.Body>
-                    <h5 className="fw-bold" style={{ fontSize: 22 }}>Recent Activity</h5>
-                    <div className="mt-3">
-                      <div className="mb-2 p-2 border rounded bg-light">Added event — Flight to Istanbul (2 hours ago)</div>
-                      <div className="mb-2 p-2 border rounded bg-light">Updated trip — Hotel booking confirmed (5 hours ago)</div>
-                      <div className="mb-2 p-2 border rounded bg-light">Invited member — Sarah joined the trip (1 day ago)</div>
-                    </div>
-                  </Card.Body>
-                </Card>
+                
               </Col>
             </Row>
           </main>
