@@ -1,15 +1,30 @@
+// src/components/Sidebar.jsx
 import React from 'react';
 import { Nav, Button } from 'react-bootstrap';
 import { Home, Calendar, DollarSign, User, Settings, HelpCircle, LogOut } from 'lucide-react';
-import voyagoLogo from '../assets/voyagologo.png'; // make sure this file exists at src/assets/voyagologo.png
+import { useNavigate, useLocation } from 'react-router-dom';
+import voyagoLogo from '../assets/voyagologo.png';
 
 export default function Sidebar({
-  active = 'dashboard',
-  isToggled = false,
-  onNavigate = () => {},
-  onLogout = () => {}
+  onLogout = () => {},
 }) {
-  // Inline styles (no external CSS)
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // derive active key from current path
+  const path = location.pathname || '/';
+  const active = path.startsWith('/profile')
+    ? 'profile'
+    : path.startsWith('/calendar')
+    ? 'calendar'
+    : path.startsWith('/budget')
+    ? 'budget'
+    : path.startsWith('/settings')
+    ? 'settings'
+    : path.startsWith('/support')
+    ? 'support'
+    : 'dashboard';
+
   const container = {
     width: 260,
     minHeight: '100vh',
@@ -90,6 +105,7 @@ export default function Sidebar({
 
   return (
     <aside style={container}>
+      {/* Brand */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
         <div style={logoBox}>
           <img
@@ -101,38 +117,40 @@ export default function Sidebar({
         <div style={brandText}>VOYAGO</div>
       </div>
 
+      {/* Navigation */}
       <div style={navWrap}>
-        <div style={item('dashboard')} onClick={() => onNavigate('dashboard')}>
+        <div style={item('dashboard')} onClick={() => navigate('/dashboard')}>
           <Home size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Dashboard</div>
         </div>
 
-        <div style={item('calendar')} onClick={() => onNavigate('calendar')}>
+        <div style={item('calendar')} onClick={() => navigate('/calendar')}>
           <Calendar size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Calendar</div>
         </div>
 
-        <div style={item('budget')} onClick={() => onNavigate('budget')}>
+        <div style={item('budget')} onClick={() => navigate('/budget')}>
           <DollarSign size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Budget</div>
         </div>
 
-        <div style={item('profile')} onClick={() => onNavigate('profile')}>
+        <div style={item('profile')} onClick={() => navigate('/profile')}>
           <User size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Profile</div>
         </div>
 
-        <div style={item('settings')} onClick={() => onNavigate('settings')}>
+        <div style={item('settings')} onClick={() => navigate('/settings')}>
           <Settings size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Settings</div>
         </div>
 
-        <div style={item('support')} onClick={() => onNavigate('support')}>
+        <div style={item('support')} onClick={() => navigate('/support')}>
           <HelpCircle size={20} strokeWidth={2} />
           <div style={{ flex: 1 }}>Support</div>
         </div>
       </div>
 
+      {/* Footer */}
       <div style={footer}>
         <div style={{ marginBottom: 12 }}>
           <Button 

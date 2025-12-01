@@ -23,7 +23,6 @@ export default function TripDetailsPage() {
 
   // --- 1. SAFER USER PARSING (The Fix) ---
   const rawUser = localStorage.getItem('user');
-  console.log("🔍 DEBUG [TripDetailsPage] Raw localStorage value:", rawUser);
 
   let user = null;
   try {
@@ -35,7 +34,6 @@ export default function TripDetailsPage() {
     console.error("❌ Error parsing user JSON:", e);
     localStorage.removeItem('user'); // Clear bad data
   }
-  console.log("🔍 DEBUG [TripDetailsPage] Final user object:", user);
   // ---------------------------------------
 
   const [showAddModal, setShowAddModal] = useState(false);

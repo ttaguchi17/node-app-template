@@ -44,16 +44,13 @@ function GmailConnector() {
   useEffect(() => {
     if (!popup) return;
 
-    const timer = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(timer);
-        setLoading(false);
-        setPopup(null);
-        console.log('Popup closed by user.');
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
+    const timer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(timer);
+        setLoading(false);
+        setPopup(null);
+      }
+    }, 1000);    return () => clearInterval(timer);
   }, [popup]);
 
   const checkGmailStatus = async () => {
@@ -63,7 +60,6 @@ function GmailConnector() {
         console.error('No authentication token found');
         return;
       }
-      console.log('Using token:', token); // Debug log
       const response = await axios.get('http://localhost:3000/api/gmail/status', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -82,7 +78,6 @@ function GmailConnector() {
         alert('Please log in first');
         return;
       }
-      console.log('Using token for connect:', token);
       
       const response = await axios.get('http://localhost:3000/api/gmail/connect', {
         headers: { Authorization: `Bearer ${token}` }
@@ -176,7 +171,6 @@ const handleSimpleScan = async () => {
       finalQuery = `subject:${searchQuery}`;
     }
     
-    console.log(`Executing smart search with query: ${finalQuery}`);
     // --- END OF NEW LOGIC ---
 
   try {

@@ -20,30 +20,58 @@ export default function SignUpForm({ onSubmit, email, setEmail, password, setPas
   };
 
   return (
-    <Form onSubmit={onSubmit}>
-      <h2 className="text-center mb-4">Create Account</h2>
+    <Form onSubmit={onSubmit} className="login-form">
+      <h2 className="text-center mb-4" style={{ color: 'var(--bs-gray-900)', fontWeight: 700 }}>Create Account</h2>
       <Form.Group className="mb-3" controlId="signupEmail">
-        <Form.Label>Email Address</Form.Label>
+        <Form.Label style={{ color: 'var(--bs-gray-900)', fontWeight: 600, marginBottom: '0.5rem' }}>Email Address</Form.Label>
         <Form.Control
           type="email"
-          placeholder="Enter email"
+          placeholder="Enter your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          style={{
+            padding: '1rem',
+            border: '2px solid #e2e8f0',
+            borderRadius: '12px',
+            fontSize: '1rem',
+            transition: 'all 0.3s ease'
+          }}
         />
       </Form.Group>
       <Form.Group className="mb-3" controlId="signupPassword">
-        <Form.Label>Password</Form.Label>
+        <Form.Label style={{ color: 'var(--bs-gray-900)', fontWeight: 600, marginBottom: '0.5rem' }}>Password</Form.Label>
         <Form.Control
           type="password"
-          placeholder="Create password"
+          placeholder="Create a strong password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onFocus={handlePasswordFocus}
           required
+          style={{
+            padding: '1rem',
+            border: '2px solid #e2e8f0',
+            borderRadius: '12px',
+            fontSize: '1rem',
+            transition: 'all 0.3s ease'
+          }}
         />
       </Form.Group>
-      <Button variant="success" type="submit" className="w-100" disabled={isLoading}>
+      <Button 
+        type="submit" 
+        className="w-100" 
+        disabled={isLoading}
+        style={{
+          padding: '1rem',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, var(--bs-green) 0%, #15803d 100%)',
+          border: 'none',
+          fontSize: '1rem',
+          fontWeight: 600,
+          marginTop: '1rem',
+          transition: 'all 0.3s ease'
+        }}
+      >
         {isLoading ? 'Creating Account...' : 'Sign Up'}
       </Button>
     </Form>

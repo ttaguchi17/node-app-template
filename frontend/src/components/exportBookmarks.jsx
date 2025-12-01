@@ -56,6 +56,10 @@ ${placemarks}
   return kml;
 }
 
+/**
+ * downloadKmlFile(kmlString, filename)
+ * Utility to trigger download of a KML string as a .kml file.
+ */
 export function downloadKmlFile(kmlString, filename = 'trip-bookmarks.kml') {
   try {
     if (!kmlString || typeof kmlString !== 'string') {
@@ -71,7 +75,6 @@ export function downloadKmlFile(kmlString, filename = 'trip-bookmarks.kml') {
 
     // msSaveOrOpenBlob (IE/old Edge)
     if (typeof navigator !== 'undefined' && navigator.msSaveOrOpenBlob) {
-      console.log('[exportBookmarks] using msSaveOrOpenBlob fallback');
       return navigator.msSaveOrOpenBlob(blob, filename);
     }
 
@@ -83,8 +86,6 @@ export function downloadKmlFile(kmlString, filename = 'trip-bookmarks.kml') {
     // For Safari, anchor must be in DOM for click to work reliably
     document.body.appendChild(a);
 
-    console.log('[exportBookmarks] trigger download', { filename, url });
-
     // Attempt to click the anchor
     a.click();
 
@@ -92,14 +93,12 @@ export function downloadKmlFile(kmlString, filename = 'trip-bookmarks.kml') {
     a.remove();
 
     // Safari fallback: some WebKit builds ignore download attribute — open in new tab
-    // Wait a tick and check if the document has become hidden (user took action) OR rely on isSafari heuristic
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     if (isSafari) {
       // Give the browser a short moment then open the object URL as a fallback
       setTimeout(() => {
         try {
           window.open(url, '_blank', 'noopener,noreferrer');
-          console.log('[exportBookmarks] Safari fallback opened object URL');
         } catch (e) {
           console.warn('[exportBookmarks] Safari fallback failed to open object URL', e);
         }
@@ -109,7 +108,6 @@ export function downloadKmlFile(kmlString, filename = 'trip-bookmarks.kml') {
     setTimeout(() => {
       try {
         URL.revokeObjectURL(url);
-        console.log('[exportBookmarks] revoked object URL');
       } catch (e) {
         console.warn('[exportBookmarks] revokeObjectURL failed', e);
       }

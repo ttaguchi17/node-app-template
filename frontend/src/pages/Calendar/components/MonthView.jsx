@@ -35,11 +35,11 @@ export default function MonthView({ currentDate, setCurrentDate, eventsByDate, t
           </div>
         </div>
 
-        <Row className="g-2 text-center" style={{ fontWeight: 600, color: "#6b7280" }}>
-          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => <Col key={d} xs={1}>{d}</Col>)}
-        </Row>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 12, marginBottom: 12, fontWeight: 600, color: "#6b7280", textAlign: "center" }}>
+          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => <div key={d}>{d}</div>)}
+        </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 12, marginTop: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 12 }}>
           {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} style={{ minHeight: 120 }} />)}
 
           {Array.from({ length: daysInMonth }).map((_, i) => {
