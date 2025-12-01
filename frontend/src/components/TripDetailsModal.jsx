@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Modal, Button, Row, Col, Form, Alert, ListGroup, Badge, CloseButton } from 'react-bootstrap';
 import { apiGet, apiPost } from '../utils/api';
 
-function TripDetailsModal({ trip, show, onClose, deleteEvent }) {
+function TripDetailsModal({ trip, show, onClose, deleteEvent, initialData, onEventAdded }) {
   // --- State for the "Add" Form ---
   const [showAddSection, setShowAddSection] = useState(false);
   const [addType, setAddType] = useState('');
@@ -48,6 +48,28 @@ function TripDetailsModal({ trip, show, onClose, deleteEvent }) {
     setDetails('');
     setAddType(''); // Also reset the selected type
   };
+
+  // --- NEW: Listen for AI Data (initialData) ---
+  useEffect(() => {
+    if (show && initialData) {
+      // 1. Open the "Add" section automatically
+      setShowAddSection(true);
+      
+      // 2. Set the dropdown to "Event" so fields appear
+      setAddType('Event'); 
+
+      // 3. Pre-fill the state variables
+      setTitle(initialData.title || '');
+      setLocation(initialData.location || '');
+      // Map "Food" to "Activity" or keep as is if your select supports it
+      setType(initialData.type === 'Food' ? 'Activity' : (initialData.type || 'Activity'));
+      setDetails(initialData.description || '');
+      
+      // Leave times empty for the user to pick
+      setStartTime('');
+      setEndTime('');
+    }
+  }, [initialData, show]);
 
   // --- Function to Fetch Events ---
   const fetchEvents = async (tripId) => {
@@ -142,6 +164,11 @@ function TripDetailsModal({ trip, show, onClose, deleteEvent }) {
           setEvents(prev => [created, ...prev]);
         } else {
           fetchEvents(tripId);
+        }
+
+        // Notify parent component that event was added
+        if (onEventAdded) {
+          onEventAdded(created);
         }
       } catch (err) {
         console.error('add event error', err);

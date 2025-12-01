@@ -4,7 +4,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
-
+ 
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -36,8 +36,11 @@ tryMount('/api/gmail', './routes/gmail');
 tryMount('/api/users', './routes/users');
 tryMount('/api/notifications', './routes/notifications');
 tryMount('/api/events', './routes/events');
-tryMount('/api/emails', './routes/emails');
 tryMount('/api/calendar', './routes/calendar');
+
+// ✅ NEW: AI Route
+tryMount('/api/ai', './routes/ai'); 
+
 
 try {
   const mapsExport = require('./routes/mapsExport');

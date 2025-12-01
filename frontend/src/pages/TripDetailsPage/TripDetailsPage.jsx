@@ -15,6 +15,8 @@ import TripMapBox from '../../components/MapBox.jsx';
 import TripMembersBox from './components/TripMembersBox.jsx';
 import EditEventModal from './components/EditEventModal.jsx';
 
+import AIAssistant from '../../components/AIAssistant.jsx';
+
 export default function TripDetailsPage() {
   const { tripId } = useParams();
   const navigate = useNavigate();
@@ -39,6 +41,8 @@ export default function TripDetailsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
   const [eventToEdit, setEventToEdit] = useState(null);
+
+  const [aiPrefill, setAiPrefill] = useState(null);
 
   // 2. Call our custom hook
   const {
@@ -68,6 +72,28 @@ export default function TripDetailsPage() {
     fetchEvents(trip.trip_id);
   };
 
+  const handleAIRecommendation = (rec) => {
+    // Format the AI data to match what your Modal expects
+    const prefillData = {
+      title: rec.name,
+      location: rec.location, // AI provides address/area
+      type: rec.type === "Food" ? "Activity" : "Activity", // Map "Food" to "Activity" if needed
+      description: rec.description
+    };
+    
+    setAiPrefill(prefillData); // Set the data
+    setShowAddModal(true);     // Open the modal
+  };
+
+  // Wrapper to close modal and clear AI data
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setAiPrefill(null); // Clear the pre-fill so next time it's empty
+    // Refresh events list to show newly added event
+    if (trip?.trip_id) {
+      fetchEvents(trip.trip_id);
+    }
+  };
   // Check if current user is the organizer (for the Delete Trip button)
   const isOrganizer = trip?.my_role === 'organizer' || trip?.my_role === 'owner';
 
@@ -142,6 +168,12 @@ export default function TripDetailsPage() {
                   trip={trip} 
                   currentUser={user} // <-- Passing the safely parsed user
                 />
+                <div className="mt-4 mb-5" style={{ height: '500px' }}>
+                    <AIAssistant 
+                        tripLocation={trip.destination || "Unknown"} 
+                        onAddEvent={handleAIRecommendation}
+                    />
+                </div>
               </Col>
             </Row>
 
@@ -163,14 +195,18 @@ export default function TripDetailsPage() {
 
       {/* "Add Event" Modal */}
       <TripDetailsModal
-        show={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          fetchEvents(trip.trip_id); 
-        }}
-        trip={trip}
-        deleteEvent={deleteEvent} 
-      />
+  show={showAddModal}
+  onClose={handleCloseAddModal}
+  trip={trip}
+  deleteEvent={deleteEvent} 
+  initialData={aiPrefill}
+  onEventAdded={() => {
+    // Refresh events when a new one is added
+    if (trip?.trip_id) {
+      fetchEvents(trip.trip_id);
+    }
+  }}
+/>
 
       {/* "Edit Event" Modal */}
       <EditEventModal

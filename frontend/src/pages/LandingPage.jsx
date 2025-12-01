@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Navbar, Nav, Button, Row, Col, Card } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 
@@ -6,6 +6,18 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Change navbar style after scrolling past hero section (roughly 100vh)
+      const heroHeight = window.innerHeight * 0.7; // Adjust threshold as needed
+      setScrolled(window.scrollY > heroHeight);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleCtaClick = () => {
     navigate(isLoggedIn ? '/dashboard' : '/login');
@@ -14,20 +26,20 @@ export default function LandingPage() {
   return (
     <div className="landing-page font-sans">
       {/* === 1. Navigation === */}
-      <Navbar expand="lg" fixed="top" className="glass-nav py-3">
+      <Navbar expand="lg" fixed="top" className={`glass-nav py-3 ${scrolled ? 'navbar-scrolled' : ''}`}>
         <Container>
           <Navbar.Brand href="#" className="fw-bold d-flex align-items-center gap-2">
             <div className="bg-primary bg-opacity-10 p-2 rounded-circle">
               <span style={{ fontSize: '1.25rem' }}>✈️</span> 
             </div>
-            <span className="text-gray-900 fw-bolder" style={{ letterSpacing: '-0.5px', fontSize: '1.25rem'}}>TripApp</span>
+            <span className={`fw-bolder ${scrolled ? 'text-gray-900' : 'text-white'}`} style={{ letterSpacing: '-0.5px', fontSize: '1.25rem'}}>VOYAGO</span>
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" className="border-0 shadow-none" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Nav className="ms-auto align-items-center gap-3">
-              <Nav.Link href="#about" className="fw-semibold text-secondary">Mission</Nav.Link>
-              <Nav.Link href="#features" className="fw-semibold text-secondary">Features</Nav.Link>
-              <Nav.Link href="#how-it-works" className="fw-semibold text-secondary">How it Works</Nav.Link>
+              <Nav.Link href="#about" className={`fw-semibold ${scrolled ? 'text-dark' : 'text-white'}`}>Mission</Nav.Link>
+              <Nav.Link href="#features" className={`fw-semibold ${scrolled ? 'text-dark' : 'text-white'}`}>Features</Nav.Link>
+              <Nav.Link href="#how-it-works" className={`fw-semibold ${scrolled ? 'text-dark' : 'text-white'}`}>How it Works</Nav.Link>
               
               {isLoggedIn ? (
                  <Button variant="primary" className="px-4 py-2 rounded-pill shadow-sm fw-bold" onClick={() => navigate('/dashboard')}>
@@ -35,7 +47,7 @@ export default function LandingPage() {
                  </Button>
               ) : (
                 <>
-                  <Nav.Link onClick={() => navigate('/login')} className="fw-bold text-primary">Log In</Nav.Link>
+                  <Nav.Link onClick={() => navigate('/login')} className={`fw-bold ${scrolled ? 'text-primary' : 'text-white'}`}>Log In</Nav.Link>
                   <Button variant="primary" className="px-4 py-2 rounded-pill shadow-sm fw-bold" onClick={() => navigate('/login')}>
                     Sign Up Free
                   </Button>
@@ -110,10 +122,10 @@ export default function LandingPage() {
             <Col md={8}>
               <h6 className="text-primary fw-bold text-uppercase tracking-wider mb-3">Our Mission</h6>
               <h2 className="display-6 fw-bold text-dark mb-4">
-                "We built TripApp because spreadsheets are <span className="text-decoration-line-through text-muted">boring</span> hard."
+                "We built VOYAGO because spreadsheets are <span className="text-decoration-line-through text-muted">boring</span> hard."
               </h2>
               <p className="text-muted fs-5 lh-lg">
-                TripApp was built to solve the headache of group travel. 
+                VOYAGO was built to solve the headache of group travel. 
                 No more lost confirmation numbers, no more "what time is dinner?", and definitely no more complicated Excel sheets. 
                 Just you, your friends, and the open road.
               </p>
